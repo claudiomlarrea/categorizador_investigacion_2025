@@ -68,7 +68,7 @@
     "Otros antecedentes": {
       "max_points": 200,
       "items": {
-        "Premios": {
+        "Otros Antecedentes": {
           "pattern": "premio|distinci[oó]n",
           "unit_points": 20,
           "max_points": 100
