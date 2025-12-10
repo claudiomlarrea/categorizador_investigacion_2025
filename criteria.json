@@ -4,17 +4,17 @@
       "max_points": 450,
       "items": {
         "Doctorado": {
-          "pattern": "Doctorado",
+          "pattern": "(Doctorado.*Situaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*Doctorado)",
           "unit_points": 250,
           "max_points": 375
         },
         "Maestría": {
-          "pattern": "Maestr[ií]a",
+          "pattern": "((Maestr[ií]a|Mag[íi]ster).*Situaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*(Maestr[ií]a|Mag[íi]ster))",
           "unit_points": 150,
           "max_points": 225
         },
         "Especialización": {
-          "pattern": "Especializaci[oó]n",
+          "pattern": "((Especializaci[oó]n|Especialista).*Situaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*(Especializaci[oó]n|Especialista))",
           "unit_points": 70,
           "max_points": 105
         }
