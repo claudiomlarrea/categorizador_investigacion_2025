@@ -1,4 +1,3 @@
-
 import streamlit as st
 import re, json, io
 import pandas as pd
@@ -12,22 +11,6 @@ try:
 except Exception:
     HAVE_PDF = False
 
-# === Rangos de categoría ===
-CATEGORIA_RANGOS = [
-    ("I – Investigador Superior",      1000, 2000),
-    ("II – Investigador Principal",      500,  999),
-    ("III – Investigador Independiente", 300,  499),
-    ("IV – Investigador Adjunto",        100,  299),
-    ("V – Investigador Asistente",         1,   99),
-    ("VI – Becario de Iniciación",         0,    0),
-]
-
-def obtener_categoria(total):
-    for nombre, minimo, maximo in CATEGORIA_RANGOS:
-        if minimo <= total <= maximo:
-            return nombre
-    return "Sin categoría"
-
 st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wide")
 st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
 st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
@@ -39,6 +22,8 @@ def load_json(path):
 
 criteria = load_json("criteria.json")
 
+
+# === Funciones de extracción de texto ===
 def extract_text_docx(file):
     doc = DocxDocument(file)
     text = "\n".join(p.text for p in doc.paragraphs)
@@ -56,11 +41,35 @@ def extract_text_pdf(file):
             chunks.append(p.extract_text() or "")
     return "\n".join(chunks)
 
+
+# === Matching y helpers numéricos ===
 def match_count(pattern, text):
     return len(re.findall(pattern, text, re.IGNORECASE)) if pattern else 0
 
 def clip(v, cap):
     return min(v, cap) if cap else v
+
+
+# === Categorización basada en criteria.json ===
+def obtener_categoria(total, criteria_dict):
+    """
+    Devuelve (clave_categoria, descripcion_categoria) usando el bloque 'categorias'
+    de criteria.json. Elige la categoría con mayor min_points <= total.
+    """
+    categorias = criteria_dict.get("categorias", {})
+    mejor_clave = "Sin categoría"
+    mejor_desc = ""
+    mejor_min = None
+
+    for clave, info in categorias.items():
+        min_pts = info.get("min_points", 0)
+        if total >= min_pts and (mejor_min is None or min_pts > mejor_min):
+            mejor_min = min_pts
+            mejor_clave = clave
+            mejor_desc = info.get("descripcion", "")
+
+    return mejor_clave, mejor_desc
+
 
 uploaded = st.file_uploader("Cargar CV (.docx o .pdf)", type=["docx", "pdf"])
 if uploaded:
@@ -78,6 +87,7 @@ if uploaded:
     results = {}
     total = 0.0
 
+    # === Cálculo de puntajes por sección ===
     for section, cfg in criteria["sections"].items():
         st.markdown(f"### {section}")
         rows = []
@@ -85,7 +95,12 @@ if uploaded:
         for item, icfg in cfg.get("items", {}).items():
             c = match_count(icfg.get("pattern", ""), raw_text)
             pts = clip(c * icfg.get("unit_points", 0), icfg.get("max_points", 0))
-            rows.append({"Ítem": item, "Ocurrencias": c, "Puntaje (tope ítem)": pts, "Tope ítem": icfg.get("max_points", 0)})
+            rows.append({
+                "Ítem": item,
+                "Ocurrencias": c,
+                "Puntaje (tope ítem)": pts,
+                "Tope ítem": icfg.get("max_points", 0)
+            })
             subtotal_raw += pts
         df = pd.DataFrame(rows)
         subtotal = clip(subtotal_raw, cfg.get("max_points", 0))
@@ -94,64 +109,85 @@ if uploaded:
         results[section] = {"df": df, "subtotal": subtotal}
         total += subtotal
 
-    categoria = obtener_categoria(total)
+    # === Determinar categoría según criteria.json ===
+    clave_cat, desc_cat = obtener_categoria(total, criteria)
+    if clave_cat == "Sin categoría":
+        categoria_label = "Sin categoría"
+    else:
+        categoria_label = f"Categoría {clave_cat}"
 
     st.markdown("---")
     st.subheader("Puntaje total y categoría")
     st.metric("Total acumulado", f"{total:.1f}")
-    st.metric("Categoría alcanzada", categoria)
+    st.metric("Categoría alcanzada", categoria_label)
+
+    if desc_cat:
+        st.info(f"Descripción de la categoría: {desc_cat}")
 
     # Exportaciones
     st.markdown("---")
     st.subheader("Exportar resultados")
 
-    # Excel
+    # === Excel ===
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
             data["df"].to_excel(writer, sheet_name=sec[:31], index=False)
-        resumen = pd.DataFrame({"Sección": list(results.keys()),
-                                "Subtotal": [results[s]["subtotal"] for s in results]})
+        resumen = pd.DataFrame({
+            "Sección": list(results.keys()),
+            "Subtotal": [results[s]["subtotal"] for s in results]
+        })
         resumen.loc[len(resumen)] = ["TOTAL", resumen["Subtotal"].sum()]
-        resumen.loc[len(resumen)] = ["CATEGORÍA", categoria]
+        resumen.loc[len(resumen)] = ["CATEGORÍA", categoria_label]
         resumen.to_excel(writer, sheet_name="RESUMEN", index=False)
-    st.download_button("Descargar Excel", data=out.getvalue(),
-                       file_name="valoracion_cv.xlsx",
-                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                       use_container_width=True)
 
-    # Word
-    def export_word(results, total, categoria):
+    st.download_button(
+        "Descargar Excel",
+        data=out.getvalue(),
+        file_name="valoracion_cv.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+
+    # === Word ===
+    def export_word(results_dict, total_pts, cat_label, cat_desc):
         doc = DocxDocument()
         p = doc.add_paragraph("Universidad Católica de Cuyo — Secretaría de Investigación")
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_paragraph("Informe de valoración de CV").alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_paragraph("")
-        doc.add_paragraph(f"Puntaje total: {total:.1f}")
-        doc.add_paragraph(f"Categoría alcanzada: {categoria}")
-        for sec, data in results.items():
+        doc.add_paragraph(f"Puntaje total: {total_pts:.1f}")
+        doc.add_paragraph(f"Categoría alcanzada: {cat_label}")
+        if cat_desc:
+            doc.add_paragraph(cat_desc)
+
+        for sec, data in results_dict.items():
             doc.add_heading(sec, level=2)
-            df = data["df"]
-            if df.empty:
+            df_sec = data["df"]
+            if df_sec.empty:
                 doc.add_paragraph("Sin ítems detectados.")
             else:
-                tbl = doc.add_table(rows=1, cols=len(df.columns))
+                tbl = doc.add_table(rows=1, cols=len(df_sec.columns))
                 hdr = tbl.rows[0].cells
-                for i, c in enumerate(df.columns):
+                for i, c in enumerate(df_sec.columns):
                     hdr[i].text = str(c)
-                for _, row in df.iterrows():
+                for _, row in df_sec.iterrows():
                     cells = tbl.add_row().cells
-                    for i, c in enumerate(df.columns):
+                    for i, c in enumerate(df_sec.columns):
                         cells[i].text = str(row[c])
             doc.add_paragraph(f"Subtotal sección: {data['subtotal']:.1f}")
+
         bio = io.BytesIO()
         doc.save(bio)
         return bio.getvalue()
 
-    st.download_button("Descargar informe Word",
-                       data=export_word(results, total, categoria),
-                       file_name="informe_valoracion_cv.docx",
-                       mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                       use_container_width=True)
+    st.download_button(
+        "Descargar informe Word",
+        data=export_word(results, total, categoria_label, desc_cat),
+        file_name="informe_valoracion_cv.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        use_container_width=True
+    )
+
 else:
     st.info("Subí un archivo para iniciar la valoración.")
