@@ -79,5 +79,32 @@
         }
       }
     }
+  },
+
+  "categorias": {
+    "I": {
+      "min_points": 800,
+      "descripcion": "Investigador con liderazgo consolidado, producción sostenida en revistas indexadas, dirección de tesis y proyectos, y generación de impacto académico y social verificable."
+    },
+    "II": {
+      "min_points": 600,
+      "descripcion": "Investigador con producción relevante, participación estable en proyectos, publicaciones regulares y aportes significativos al desarrollo de líneas de investigación."
+    },
+    "III": {
+      "min_points": 400,
+      "descripcion": "Investigador en desarrollo con producción inicial, formación de posgrado completa y participación activa en equipos de investigación."
+    },
+    "IV": {
+      "min_points": 250,
+      "descripcion": "Docente-investigador en fase inicial, con posgrado completo y primeras actividades de producción científica, extensión o investigación aplicada."
+    },
+    "V": {
+      "min_points": 150,
+      "descripcion": "Docente con antecedentes académicos puntuales, participación formativa en actividades científicas o de actualización profesional."
+    },
+    "VI": {
+      "min_points": 0,
+      "descripcion": "Docente sin antecedentes formales en investigación o producción académica registrada."
+    }
   }
 }
