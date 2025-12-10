@@ -4,22 +4,23 @@
       "max_points": 450,
       "items": {
         "Doctorado": {
-          "pattern": "(Doctorado.*Situaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*Doctorado)",
+          "pattern": "((Doctorado(?![^\\n]*Actualidad).*?(19|20)\\d{2}.*?[Ss]ituaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*?(19|20)\\d{2}.*Doctorado(?![^\\n]*Actualidad)))",
           "unit_points": 250,
           "max_points": 375
         },
         "Maestría": {
-          "pattern": "((Maestr[ií]a|Mag[íi]ster).*Situaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*(Maestr[ií]a|Mag[íi]ster))",
+          "pattern": "(((Maestr[ií]a|Mag[íi]ster)(?![^\\n]*Actualidad).*?(19|20)\\d{2}.*?[Ss]ituaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*?(19|20)\\d{2}.*(Maestr[ií]a|Mag[íi]ster)(?![^\\n]*Actualidad)))",
           "unit_points": 150,
           "max_points": 225
         },
         "Especialización": {
-          "pattern": "((Especializaci[oó]n|Especialista).*Situaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*(Especializaci[oó]n|Especialista))",
+          "pattern": "(((Especializaci[oó]n|Especialista)(?![^\\n]*Actualidad).*?(19|20)\\d{2}.*?[Ss]ituaci[oó]n del nivel:?\\s*Completo)|(Situaci[oó]n del nivel:?\\s*Completo.*?(19|20)\\d{2}.*(Especializaci[oó]n|Especialista)(?![^\\n]*Actualidad)))",
           "unit_points": 70,
           "max_points": 105
         }
       }
     },
+
     "Cargos (docencia, gestión y otros)": {
       "max_points": 350,
       "items": {
@@ -35,6 +36,7 @@
         }
       }
     },
+
     "Ciencia y Tecnología": {
       "max_points": 500,
       "items": {
@@ -50,6 +52,7 @@
         }
       }
     },
+
     "Producciones y servicios": {
       "max_points": 500,
       "items": {
@@ -65,6 +68,7 @@
         }
       }
     },
+
     "Otros antecedentes": {
       "max_points": 200,
       "items": {
