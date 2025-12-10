@@ -32,6 +32,7 @@ def extract_text_docx(file):
             text += "\n" + " | ".join(c.text for c in row.cells)
     return text
 
+
 def extract_text_pdf(file):
     if not HAVE_PDF:
         raise RuntimeError("Instalá pdfplumber: pip install pdfplumber")
@@ -42,12 +43,47 @@ def extract_text_pdf(file):
     return "\n".join(chunks)
 
 
-# === Matching y helpers numéricos ===
+# === Matching genérico ===
 def match_count(pattern, text):
     return len(re.findall(pattern, text, re.IGNORECASE)) if pattern else 0
 
+
 def clip(v, cap):
     return min(v, cap) if cap else v
+
+
+# === Detección de posgrado COMPLETO (Doctorado / Maestría / Especialización) ===
+def posgrado_completo(titulo_regex, text, window_back=200, window_forward=400):
+    """
+    Cuenta cuántos posgrados completos hay según las reglas:
+    - Debe aparecer el título (Doctorado / Maestría-Magíster / Especialización-Especialista).
+    - En una ventana de texto alrededor:
+        * NO debe aparecer 'Actualidad'.
+        * Debe aparecer 'Situación del nivel: Completo'.
+        * Debe aparecer un año válido (19xx o 20xx).
+    Se trabaja por ventanas para evitar regex gigantes que cuelguen la app.
+    """
+    count = 0
+    for m in re.finditer(titulo_regex, text, re.IGNORECASE):
+        start = max(0, m.start() - window_back)
+        end = min(len(text), m.end() + window_forward)
+        window = text[start:end]
+
+        # Excluir si aparece "Actualidad" en la ventana
+        if re.search(r"Actualidad", window, re.IGNORECASE):
+            continue
+
+        # Requiere "Situación del nivel: Completo"
+        if not re.search(r"Situaci[oó]n del nivel:? *Completo", window, re.IGNORECASE):
+            continue
+
+        # Requiere un año válido
+        if not re.search(r"(19|20)\d{2}", window):
+            continue
+
+        count += 1
+
+    return count
 
 
 # === Categorización basada en criteria.json ===
@@ -92,8 +128,21 @@ if uploaded:
         st.markdown(f"### {section}")
         rows = []
         subtotal_raw = 0.0
+
         for item, icfg in cfg.get("items", {}).items():
-            c = match_count(icfg.get("pattern", ""), raw_text)
+            pattern = icfg.get("pattern", "")
+
+            # Lógica especial para los tres posgrados
+            if section == "Formación académica y complementaria" and item in ["Doctorado", "Maestría", "Especialización"]:
+                if item == "Doctorado":
+                    c = posgrado_completo(r"Doctorado", raw_text)
+                elif item == "Maestría":
+                    c = posgrado_completo(r"Maestr[ií]a|Mag[íi]ster", raw_text)
+                else:  # Especialización
+                    c = posgrado_completo(r"Especializaci[oó]n|Especialista", raw_text)
+            else:
+                c = match_count(pattern, raw_text)
+
             pts = clip(c * icfg.get("unit_points", 0), icfg.get("max_points", 0))
             rows.append({
                 "Ítem": item,
@@ -102,6 +151,7 @@ if uploaded:
                 "Tope ítem": icfg.get("max_points", 0)
             })
             subtotal_raw += pts
+
         df = pd.DataFrame(rows)
         subtotal = clip(subtotal_raw, cfg.get("max_points", 0))
         st.dataframe(df, use_container_width=True)
@@ -124,11 +174,11 @@ if uploaded:
     if desc_cat:
         st.info(f"Descripción de la categoría: {desc_cat}")
 
-    # Exportaciones
+    # === Exportaciones ===
     st.markdown("---")
     st.subheader("Exportar resultados")
 
-    # === Excel ===
+    # Excel
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
@@ -149,7 +199,7 @@ if uploaded:
         use_container_width=True
     )
 
-    # === Word ===
+    # Word
     def export_word(results_dict, total_pts, cat_label, cat_desc):
         doc = DocxDocument()
         p = doc.add_paragraph("Universidad Católica de Cuyo — Secretaría de Investigación")
