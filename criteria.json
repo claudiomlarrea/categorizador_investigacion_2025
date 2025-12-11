@@ -74,7 +74,7 @@
       "max_points": 540,
       "items": {
         "Director de proyecto financiado": {
-          "pattern": "Director en el Proyecto de I\\+D|Direcci[oó]n: DIEGO ENRIQUE KASSUHA|Direcci[oó]n: KASSUHA, DIEGO ENRIQUE",
+          "pattern": "Director en el Proyecto de I\\+D|Direcci[oó]n:",
           "unit_points": 30,
           "max_points": 240
         },
@@ -139,14 +139,24 @@
           "max_points": 120
         },
         "Conferencista o disertante": {
-          "pattern": "Modo de participación: Conferencista",
+          "pattern": "Modo de participación:? *Conferencista",
           "unit_points": 10,
           "max_points": 100
         },
-        "Asistente a eventos internacionales": {
-          "pattern": "Modo de participación: Asistente",
+        "Asistente a eventos científicos (con modo de participación)": {
+          "pattern": "Modo de participación:? *Asistente",
           "unit_points": 5,
           "max_points": 60
+        },
+        "Asistencia a cursos, jornadas y congresos CyT (formato CVar estándar)": {
+          "pattern": "\\b\\d{4}\\s*-\\s*Evento:",
+          "unit_points": 1,
+          "max_points": 120
+        },
+        "Presentación de trabajos en eventos científicos (formato CVar estándar)": {
+          "pattern": "Presentado en el evento",
+          "unit_points": 5,
+          "max_points": 150
         },
         "Jefe de servicio / cargo profesional relevante": {
           "pattern": "Jefe de servicio",
@@ -186,7 +196,6 @@
       }
     }
   },
-
   "categorias": {
     "I": {
       "min_points": 1200,
