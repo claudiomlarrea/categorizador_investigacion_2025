@@ -33,10 +33,10 @@
           "unit_points": 5,
           "max_points": 80
         },
-        "Certificados de idioma / Inglés": {
-          "pattern": "(Ingl[eé]s \\[ nivel|Ingl[eé]s \\[ nivel intermedio|Ingles para Prop[oó]sitos Espec[ií]ficos)",
-          "unit_points": 10,
-          "max_points": 20
+        "Certificados de idiomas": {
+  "pattern": "(Idioma|Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Alem[aá]n|Italiano|Chino|Japon[eé]s).*(nivel|certificaci[oó]n|curso)",
+  "unit_points": 10,
+  "max_points": 30
         }
       }
     },
