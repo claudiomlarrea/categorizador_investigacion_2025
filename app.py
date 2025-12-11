@@ -52,13 +52,14 @@ def clip(v, cap):
     return min(v, cap) if cap else v
 
 
-# === Detección de posgrado COMPLETO (Doctorado / Maestría / Especialización) ===
-def posgrado_completo(titulo_regex, text, window_back=250, window_forward=450):
+# === Detección de título / posgrado COMPLETO ===
+def titulacion_completa(titulo_regex, text, window_back=250, window_forward=450):
     """
-    Cuenta cuántos posgrados completos hay según las reglas:
-    - Debe aparecer el título (Doctorado / Maestría-Magíster / Especialización-Especialista).
+    Cuenta cuántas titulaciones completas hay (Doctorado, Maestría, Especialización,
+    Profesorado, etc.) según las reglas:
+    - Debe aparecer el título (según regex).
     - En una ventana de texto alrededor:
-        * NO debe aparecer 'Actualidad' (posgrado en curso).
+        * NO debe aparecer 'Actualidad' (titulación en curso).
         * Debe aparecer AL MENOS UNO de:
             - 'Situación del nivel: Completo'
             - 'Año de finalización:' / 'Año de obtención:' / 'Año de graduación:' con año
@@ -70,7 +71,7 @@ def posgrado_completo(titulo_regex, text, window_back=250, window_forward=450):
         end = min(len(text), m.end() + window_forward)
         window = text[start:end]
 
-        # 1) Excluir si aparece "Actualidad" (posgrado en curso)
+        # 1) Excluir si aparece "Actualidad" (en curso)
         if re.search(r"Actualidad", window, re.IGNORECASE):
             continue
 
@@ -141,14 +142,21 @@ if uploaded:
         for item, icfg in cfg.get("items", {}).items():
             pattern = icfg.get("pattern", "")
 
-            # Lógica especial para Doctorado / Maestría / Especialización (posgrados)
-            if section == "Formación académica y complementaria" and item in ["Doctorado", "Maestría", "Especialización"]:
+            # Lógica especial para titulaciones completas
+            if section == "Formación académica y complementaria" and item in [
+                "Doctorado",
+                "Maestría",
+                "Especialización",
+                "Profesorados universitarios"
+            ]:
                 if item == "Doctorado":
-                    c = posgrado_completo(r"Doctorado", raw_text)
+                    c = titulacion_completa(r"Doctorado", raw_text)
                 elif item == "Maestría":
-                    c = posgrado_completo(r"Maestr[ií]a|Mag[íi]ster", raw_text)
-                else:  # Especialización
-                    c = posgrado_completo(r"Especializaci[oó]n|Especialista", raw_text)
+                    c = titulacion_completa(r"Maestr[ií]a|Mag[íi]ster", raw_text)
+                elif item == "Especialización":
+                    c = titulacion_completa(r"Especializaci[oó]n|Especialista", raw_text)
+                else:  # Profesorados universitarios
+                    c = titulacion_completa(r"Profesor en|Profesorado en", raw_text)
             else:
                 c = match_count(pattern, raw_text)
 
