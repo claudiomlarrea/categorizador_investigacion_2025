@@ -17,24 +17,41 @@
           "pattern": "",
           "unit_points": 160,
           "max_points": 160
+        },
+        "Títulos de grado (Licenciatura)": {
+          "pattern": "",
+          "unit_points": 40,
+          "max_points": 40
+        },
+        "Profesorados universitarios": {
+          "pattern": "",
+          "unit_points": 20,
+          "max_points": 40
+        },
+        "Cursos y diplomaturas de posgrado": {
+          "pattern": "",
+          "unit_points": 5,
+          "max_points": 80
         }
       }
     },
+
     "Producción científica": {
       "max_points": 600,
       "items": {
         "Artículos en revistas con referato": {
-          "pattern": "(Journal|Revista|Acta Bioqu[ií]mica Cl[ií]nica Latinoamericana|CURRENT DRUG TARGETS|Therapeutic Advances in Cardiovascular Disease|Biocatalysis and Agricultural Biotechnology|Pharmaceutical Development and Technology|JOURNAL OF MOLECULAR STRUCTURE|Scientia Pharmaceutica)",
+          "pattern": "(Journal|Revista|Acta Bioqu[ií]mica Cl[ií]nica Latinoamericana|CURRENT DRUG TARGETS|Therapeutic Advances in Cardiovascular Disease|Biocatalysis and Agricultural Biotechnology|Pharmaceutical Development and Technology|JOURNAL OF MOLECULAR STRUCTURE|Scientia Pharmaceutica|ANALYST|Hipertension y Riesgo Vascular|Cl[ií]nica e Investigaci[oó]n en Arteriosclerosis|CURRENT PHARMACEUTICAL DESIGN|CURRENT DRUG TARGETS|INTERNATIONAL JOURNAL OF PHARMACEUTICS|IET NANOBIOTECHNOLOGY|BIOTECHNOLOGY PROGRESS|Bioan[aá]lisis)",
           "unit_points": 10,
           "max_points": 400
         },
         "Trabajos en libros de resúmenes y congresos": {
-          "pattern": "(Libro de Res[uú]menes del Congreso|Revista de Resumenes del Congreso|Libro de res[uú]menes|Libro de Res[uú]menes del Evento)",
+          "pattern": "(Libro de Res[uú]menes del Congreso|Revista de Res[uú]menes del Congreso|Libro de Res[uú]menes del Evento|Revista de Resumenes del Congreso|Revista de resumenes del Congreso|Livro de Resumos|Revista de la Sociedad de Biolog[ií]a de Cuyo|Acta Bioquimica Cl[ií]nica Latinoamericana)",
           "unit_points": 2,
           "max_points": 200
         }
       }
     },
+
     "Formación de recursos humanos": {
       "max_points": 640,
       "items": {
@@ -70,11 +87,12 @@
         }
       }
     },
+
     "Financiamiento CyT y Proyectos": {
       "max_points": 540,
       "items": {
         "Director de proyecto financiado": {
-          "pattern": "Director en el Proyecto de I\\+D|Direcci[oó]n:",
+          "pattern": "Director en el Proyecto de I\\+D|Direcci[oó]n: [A-ZÁÉÍÓÚÑ ]+KASSUHA|Direcci[oó]n: [A-ZÁÉÍÓÚÑ ]+LARREA",
           "unit_points": 30,
           "max_points": 240
         },
@@ -84,7 +102,7 @@
           "max_points": 160
         },
         "Investigador en proyecto financiado": {
-          "pattern": "(Investigador en el Proyecto de I\\+D|Estancia de I\\+D en:)",
+          "pattern": "(Investigador en el Proyecto de I\\+D|Miembro del equipo del Proyecto de I\\+D|Estancia de I\\+D en:)",
           "unit_points": 10,
           "max_points": 140
         },
@@ -95,26 +113,27 @@
         }
       }
     },
+
     "Actividades de evaluación y gestión editorial": {
       "max_points": 650,
       "items": {
         "Miembro de comité editorial": {
-          "pattern": "Integrante del comité editorial",
+          "pattern": "Integrante del comité editorial|Miembro del Comit[eé] Editorial",
           "unit_points": 20,
           "max_points": 80
         },
         "Evaluación de trabajos en revistas": {
-          "pattern": "Evaluaci[oó]n de trabajos en revistas",
+          "pattern": "Evaluaci[oó]n de trabajos en revistas|evaluaci[oó]n y correcci[oó]n de abstracts",
           "unit_points": 4,
           "max_points": 160
         },
         "Evaluación de programas, proyectos y planes": {
-          "pattern": "Evaluaci[oó]n de programas y proyectos|Evaluaci[oó]n de planes y/o pol[ií]ticas|AGENCIA NACIONAL DE PROMOCION CIENT Y TECNOLOGICA",
+          "pattern": "Evaluaci[oó]n de programas y proyectos|Evaluaci[oó]n de planes y/o pol[ií]ticas|AGENCIA NACIONAL DE PROMOCION CIENT[ÍI]FICA Y TECNOL[ÓO]GICA",
           "unit_points": 15,
           "max_points": 150
         },
         "Evaluación y/o acreditación de carreras": {
-          "pattern": "Evaluaci[oó]n y/o acreditaci[oó]n de carreras de grado y postgrado|CONEAU",
+          "pattern": "Evaluaci[oó]n y/o acreditaci[oó]n de carreras de grado y postgrado|CONEAU|Comisi[oó]n Nacional de Evaluaci[oó]n y Acreditaci[oó]n Universitaria",
           "unit_points": 20,
           "max_points": 160
         },
@@ -130,61 +149,53 @@
         }
       }
     },
+
     "Participación en eventos CyT y actividades profesionales": {
       "max_points": 470,
       "items": {
         "Organizador o miembro de comité científico": {
-          "pattern": "Miembro del comité cientifico-tecnol[oó]gico|Organizador general",
+          "pattern": "Miembro del comité cient[ií]fico-tecnol[oó]gico|Miembro del comité cient[ií]fico|Organizador general|Comit[eé] cient[ií]fico",
           "unit_points": 15,
           "max_points": 120
         },
         "Conferencista o disertante": {
-          "pattern": "Modo de participación:? *Conferencista",
+          "pattern": "Modo de participación: Conferencista|Conferencista invitado|Disertante",
           "unit_points": 10,
           "max_points": 100
         },
-        "Asistente a eventos científicos (con modo de participación)": {
-          "pattern": "Modo de participación:? *Asistente",
+        "Asistente a eventos internacionales": {
+          "pattern": "Modo de participación: Asistente",
           "unit_points": 5,
           "max_points": 60
         },
-        "Asistencia a cursos, jornadas y congresos CyT (formato CVar estándar)": {
-          "pattern": "\\b\\d{4}\\s*-\\s*Evento:",
-          "unit_points": 1,
-          "max_points": 120
-        },
-        "Presentación de trabajos en eventos científicos (formato CVar estándar)": {
-          "pattern": "Presentado en el evento",
-          "unit_points": 5,
-          "max_points": 150
-        },
         "Jefe de servicio / cargo profesional relevante": {
-          "pattern": "Jefe de servicio",
+          "pattern": "Jefe de servicio|Jefe de Servicio|Jefe de Departamento|Director del Servicio",
           "unit_points": 20,
           "max_points": 80
         },
         "Premios y distinciones": {
-          "pattern": "Primera Menci[oó]n|PRIMERA MENCI[oÓ]N EN TRABAJO CIENT[IÍ]FICO",
+          "pattern": "Primera Menci[oó]n|PRIMERA MENCI[ÓO]N EN TRABAJO CIENT[ÍI]FICO|Premio|Distinci[oó]n",
           "unit_points": 20,
           "max_points": 80
         }
       }
     },
+
     "Otros antecedentes CyT": {
       "max_points": 300,
       "items": {
         "Membresías en comisiones y comités científicos": {
-          "pattern": "Comisi[oó]n Cient[ií]fica de la Editorial Universitaria|Comit[eé] de expertos de la Sociedad Argentina de Farmacia y Bioqu[ií]mica Industrial",
+          "pattern": "Comisi[oó]n Cient[ií]fica de la Editorial Universitaria|Comit[eé] de expertos de la Sociedad Argentina de Farmacia y Bioqu[ií]mica Industrial|Miembro de la Comisi[oó]n Cient[ií]fica",
           "unit_points": 10,
           "max_points": 80
         },
         "Participación en redes temáticas": {
-          "pattern": "Proyecto Redes VIII|Regi[oó]n Binacional de Educaci[oó]n Coquimbo-San Juan",
+          "pattern": "Proyecto Redes VIII|Regi[oó]n Binacional de Educaci[oó]n Coquimbo-San Juan|Red de Investigaci[oó]n|Red temática",
           "unit_points": 10,
           "max_points": 60
         },
         "Desarrollos tecnológicos/organizacionales": {
-          "pattern": "Desarrollo de Producto",
+          "pattern": "Desarrollo de Producto|Desarrollo tecnol[oó]gico|Desarrollo organizacional",
           "unit_points": 20,
           "max_points": 80
         },
@@ -196,6 +207,7 @@
       }
     }
   },
+
   "categorias": {
     "I": {
       "min_points": 1200,
