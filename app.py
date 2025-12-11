@@ -53,31 +53,58 @@ def clip(v, cap):
 
 
 # === Detección de posgrado COMPLETO (Doctorado / Maestría / Especialización) ===
-def posgrado_completo(titulo_regex, text, window_back=200, window_forward=400):
+def posgrado_completo(titulo_regex, text, window_back=300, window_forward=500):
     """
-    Cuenta cuántos posgrados completos hay según las reglas:
-    - Debe aparecer el título (Doctorado / Maestría-Magíster / Especialización-Especialista).
-    - En una ventana de texto alrededor:
-        * NO debe aparecer 'Actualidad'.
-        * Debe aparecer 'Situación del nivel: Completo'.
-        * Debe aparecer un año válido (19xx o 20xx).
-    Se trabaja por ventanas para evitar regex gigantes que cuelguen la app.
+    Cuenta cuántos posgrados COMPLETOS hay (Doctorado / Maestría / Especialización)
+    con estas reglas:
+
+    SE SUMA (1) CUANDO EN LA VENTANA ALREDEDOR DEL TÍTULO:
+    - Aparece el título (Doctorado, Maestría/Magíster, Especialización/Especialista), y
+    - NO aparece 'Actualidad' ni 'En curso', y
+    - Hay alguna señal de que está COMPLETO:
+        * 'Situación del nivel: Completo' (formato CVar)
+        * o 'Año de finalización' / 'Año de egreso'
+        * o un rango de años tipo '2015 - 2019'
+        * o palabras como 'Titulado' o 'Graduado'
+    - Hay al menos un año válido (19xx o 20xx) en la ventana.
+
+    Cualquier posgrado que esté 'Actualidad' o 'En curso' queda automáticamente en 0.
     """
     count = 0
+
     for m in re.finditer(titulo_regex, text, re.IGNORECASE):
         start = max(0, m.start() - window_back)
         end = min(len(text), m.end() + window_forward)
         window = text[start:end]
 
-        # Excluir si aparece "Actualidad" en la ventana
-        if re.search(r"Actualidad", window, re.IGNORECASE):
+        # 1) Excluir expresamente posgrados en curso
+        if re.search(r"(Actualidad|En curso)", window, re.IGNORECASE):
             continue
 
-        # Requiere "Situación del nivel: Completo"
-        if not re.search(r"Situaci[oó]n del nivel:? *Completo", window, re.IGNORECASE):
+        # 2) Marcas de COMPLETO
+        completo = False
+
+        # Formato CVar clásico
+        if re.search(r"Situaci[oó]n del nivel:? *Completo", window, re.IGNORECASE):
+            completo = True
+
+        # Año de finalización / egreso
+        if re.search(r"A[nñ]o de (finalizaci[oó]n|egreso)", window, re.IGNORECASE):
+            completo = True
+
+        # Rango de años 2012 - 2016, etc.
+        if re.search(r"(19|20)\d{2}\s*[-–]\s*(19|20)\d{2}", window):
+            completo = True
+
+        # Palabras generales que indican título obtenido
+        if re.search(r"(Titulado|Graduado)", window, re.IGNORECASE):
+            completo = True
+
+        # Si no encontramos ninguna marca de completo, no se cuenta
+        if not completo:
             continue
 
-        # Requiere un año válido
+        # 3) Exigir que aparezca al menos UN año, para evitar falsos positivos
         if not re.search(r"(19|20)\d{2}", window):
             continue
 
