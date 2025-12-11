@@ -54,16 +54,17 @@ def clip(v: float, cap: float) -> float:
 
 # === Detección de posgrado COMPLETO (Doctorado / Maestría / Especialización) ===
 def posgrado_completo(titulo_regex: str, text: str,
-                      window_back: int = 200,
-                      window_forward: int = 400) -> int:
+                      window_back: int = 250,
+                      window_forward: int = 450) -> int:
     """
-    Cuenta cuántos posgrados completos hay según las reglas:
-    - Debe aparecer el título (Doctorado / Maestría-Magíster / Especialización-Especialista).
-    - En una ventana de texto alrededor:
-        * NO debe aparecer 'Actualidad'.
-        * Debe aparecer 'Situación del nivel: Completo' (o similar).
-        * Debe aparecer un año válido (19xx o 20xx).
-    Se trabaja por ventanas para evitar regex gigantes que cuelguen la app.
+    Cuenta cuántos posgrados COMPLETOS hay.
+    Regla:
+      - Debe aparecer el patrón del título (p.ej. 'Doctorado en', 'Maestría en').
+      - En una ventana cercana:
+          * Si SOLO aparece 'Actualidad' (sin 'Año de finalización'), se descarta (en curso).
+          * Debe haber:
+                - 'Año de finalización' O 'Finalizado/Finalización'
+                - y un año 19xx / 20xx.
     """
     count = 0
     for m in re.finditer(titulo_regex, text, re.IGNORECASE):
@@ -71,12 +72,15 @@ def posgrado_completo(titulo_regex: str, text: str,
         end = min(len(text), m.end() + window_forward)
         window = text[start:end]
 
-        # Excluir si aparece "Actualidad" en la ventana → en curso
-        if re.search(r"Actualidad", window, re.IGNORECASE):
+        # Si está "Actualidad" pero NO hay indicio de finalización → en curso, se descarta
+        if re.search(r"Actualidad", window, re.IGNORECASE) and not re.search(
+            r"Año de finalizaci[oó]n|Finalizado|Finalizaci[oó]n", window, re.IGNORECASE
+        ):
             continue
 
-        # Requiere "Situación del nivel: Completo"
-        if not re.search(r"Situaci[oó]n del nivel:? *Completo", window, re.IGNORECASE):
+        # Requiere frase de finalización
+        if not re.search(r"Año de finalizaci[oó]n|Finalizado|Finalizaci[oó]n",
+                         window, re.IGNORECASE):
             continue
 
         # Requiere un año válido
@@ -94,12 +98,12 @@ def cursos_diplomaturas_completos(text: str,
                                   window_forward: int = 400) -> int:
     """
     Cuenta diplomaturas / diplomados / cursos de posgrado COMPLETOS.
-    Reglas:
-      - Debe aparecer 'Diplomado', 'Diplomatura' o 'Curso de posgrado'.
-      - En una ventana cercana:
-          * NO debe decir 'Actualidad'.
-          * Debe haber un año de finalización (19xx/20xx) o frases tipo
-            'Año de finalización', 'Finalizado', 'Finalización'.
+    Regla:
+      - 'Diplomado', 'Diplomatura' o 'Curso de posgrado'.
+      - En la ventana:
+          * NO 'Actualidad' sola.
+          * 'Año de finalización' o 'Finalizado/Finalización'
+          * y año 19xx / 20xx.
     """
     patron_titulo = r"Diplomad[oa]|Diplomatura|Curso de posgrado"
     count = 0
@@ -109,19 +113,19 @@ def cursos_diplomaturas_completos(text: str,
         end = min(len(text), m.end() + window_forward)
         window = text[start:end]
 
-        # Excluir si está en curso
-        if re.search(r"Actualidad", window, re.IGNORECASE):
+        if re.search(r"Actualidad", window, re.IGNORECASE) and not re.search(
+            r"Año de finalizaci[oó]n|Finalizado|Finalizaci[oó]n", window, re.IGNORECASE
+        ):
             continue
 
-        tiene_anio = re.search(r"(19|20)\d{2}", window)
-        indicador = (
-            re.search(r"Año de finalizaci[oó]n", window, re.IGNORECASE)
-            or re.search(r"Finalizado", window, re.IGNORECASE)
-            or re.search(r"Finalizaci[oó]n", window, re.IGNORECASE)
-        )
+        if not re.search(r"Año de finalizaci[oó]n|Finalizado|Finalizaci[oó]n",
+                         window, re.IGNORECASE):
+            continue
 
-        if tiene_anio and indicador:
-            count += 1
+        if not re.search(r"(19|20)\d{2}", window):
+            continue
+
+        count += 1
 
     return count
 
@@ -133,10 +137,9 @@ def titulo_completo(titulo_regex: str, text: str,
     """
     Detecta títulos de grado / profesorados COMPLETOS.
     Regla:
-      - Debe aparecer el patrón del título (Licenciado en..., Profesor en..., etc.).
-      - En una ventana cercana:
-          * NO debe aparecer 'Actualidad'.
-          * Debe haber un año de finalización o indicación de fin de estudios.
+      - Patrón del título ('Licenciado en', 'Profesor en', 'Profesorado en').
+      - Sin 'Actualidad' sola.
+      - Con 'Año de finalización' o 'Finalizado/Finalización' + año.
     """
     count = 0
     for m in re.finditer(titulo_regex, text, re.IGNORECASE):
@@ -144,28 +147,25 @@ def titulo_completo(titulo_regex: str, text: str,
         end = min(len(text), m.end() + window_forward)
         window = text[start:end]
 
-        if re.search(r"Actualidad", window, re.IGNORECASE):
+        if re.search(r"Actualidad", window, re.IGNORECASE) and not re.search(
+            r"Año de finalizaci[oó]n|Finalizado|Finalizaci[oó]n", window, re.IGNORECASE
+        ):
             continue
 
-        tiene_anio = re.search(r"(19|20)\d{2}", window)
-        indicador = (
-            re.search(r"Año de finalizaci[oó]n", window, re.IGNORECASE)
-            or re.search(r"Finalizado", window, re.IGNORECASE)
-            or re.search(r"Finalizaci[oó]n", window, re.IGNORECASE)
-        )
+        if not re.search(r"Año de finalizaci[oó]n|Finalizado|Finalizaci[oó]n",
+                         window, re.IGNORECASE):
+            continue
 
-        if tiene_anio and indicador:
-            count += 1
+        if not re.search(r"(19|20)\d{2}", window):
+            continue
+
+        count += 1
 
     return count
 
 
 # === Categorización basada en criteria.json ===
 def obtener_categoria(total: float, criteria_dict: dict):
-    """
-    Devuelve (clave_categoria, descripcion_categoria) usando el bloque 'categorias'
-    de criteria.json. Elige la categoría con mayor min_points <= total.
-    """
     categorias = criteria_dict.get("categorias", {})
     mejor_clave = "Sin categoría"
     mejor_desc = ""
@@ -211,11 +211,11 @@ if uploaded:
             # --- Lógica especial para Formación académica ---
             if section == "Formación académica y complementaria":
                 if item == "Doctorado":
-                    c = posgrado_completo(r"Doctorado", raw_text)
+                    c = posgrado_completo(r"Doctorado en", raw_text)
                 elif item == "Maestría":
-                    c = posgrado_completo(r"Maestr[ií]a|Mag[íi]ster", raw_text)
+                    c = posgrado_completo(r"Maestr[ií]a en|Mag[íi]ster en", raw_text)
                 elif item == "Especialización":
-                    c = posgrado_completo(r"Especializaci[oó]n|Especialista", raw_text)
+                    c = posgrado_completo(r"Especialista en|Especializaci[oó]n en", raw_text)
                 elif item == "Cursos y diplomaturas de posgrado":
                     c = cursos_diplomaturas_completos(raw_text)
                 elif item == "Títulos de grado (Licenciatura)":
@@ -243,12 +243,9 @@ if uploaded:
         results[section] = {"df": df, "subtotal": subtotal}
         total += subtotal
 
-    # === Determinar categoría según criteria.json ===
+    # === Determinar categoría ===
     clave_cat, desc_cat = obtener_categoria(total, criteria)
-    if clave_cat == "Sin categoría":
-        categoria_label = "Sin categoría"
-    else:
-        categoria_label = f"Categoría {clave_cat}"
+    categoria_label = "Sin categoría" if clave_cat == "Sin categoría" else f"Categoría {clave_cat}"
 
     st.markdown("---")
     st.subheader("Puntaje total y categoría")
