@@ -1,330 +1,208 @@
 {
   "sections": {
     "Formación académica y complementaria": {
-      "max_points": 580,
+      "max_points": 800,
       "items": {
         "Doctorado": {
           "pattern": "",
-          "unit_points": 200,
+          "unit_points": 400,
           "max_points": 400
         },
         "Maestría": {
           "pattern": "",
-          "unit_points": 120,
+          "unit_points": 240,
           "max_points": 240
         },
         "Especialización": {
           "pattern": "",
-          "unit_points": 80,
+          "unit_points": 160,
           "max_points": 160
+        }
+      }
+    },
+    "Producción científica": {
+      "max_points": 600,
+      "items": {
+        "Artículos en revistas con referato": {
+          "pattern": "(Journal|Revista|Acta Bioqu[ií]mica Cl[ií]nica Latinoamericana|CURRENT DRUG TARGETS|Therapeutic Advances in Cardiovascular Disease|Biocatalysis and Agricultural Biotechnology|Pharmaceutical Development and Technology|JOURNAL OF MOLECULAR STRUCTURE|Scientia Pharmaceutica)",
+          "unit_points": 10,
+          "max_points": 400
         },
-        "Carrera de grado principal": {
-          "pattern": "Licenciad[oa]\\s+en|M[eé]dic[oa]\\b|Bioqu[ií]mic[oa]\\b|Farmac[eé]utic[oa]\\b|Abogad[oa]\\b|Ingenier[oa]\\b",
-          "unit_points": 60,
-          "max_points": 60
-        },
-        "Otra carrera de grado": {
-          "pattern": "Carrera de grado|T[íi]tulo de grado",
-          "unit_points": 30,
-          "max_points": 60
-        },
-        "Cursos de posgrado / actualización": {
-          "pattern": "Curso de|Curso:|Seminario:|Taller:|actualizaci[oó]n profesional|escuela de verano|Summer School",
+        "Trabajos en libros de resúmenes y congresos": {
+          "pattern": "(Libro de Res[uú]menes del Congreso|Revista de Resumenes del Congreso|Libro de res[uú]menes|Libro de Res[uú]menes del Evento)",
           "unit_points": 2,
-          "max_points": 40
-        },
-        "Idiomas acreditados": {
-          "pattern": "Ingl[eé]s \\[ nivel|Franc[eé]s \\[ nivel|Alem[aá]n \\[ nivel",
-          "unit_points": 5,
-          "max_points": 20
-        }
-      }
-    },
-    "Docencia universitaria": {
-      "max_points": 870,
-      "items": {
-        "Profesor titular / asociado / adjunto": {
-          "pattern": "Profesor (titular|asociado|adjunto)",
-          "unit_points": 20,
           "max_points": 200
-        },
-        "Profesor contratado / por convenio": {
-          "pattern": "Profesor (contratado|por convenio)",
-          "unit_points": 10,
-          "max_points": 100
-        },
-        "Jefe de trabajos prácticos": {
-          "pattern": "Jefe de trabajos pr[aá]cticos",
-          "unit_points": 8,
-          "max_points": 80
-        },
-        "Docencia de posgrado (módulos, especializaciones, doctorados)": {
-          "pattern": "Docente del m[oó]dulo|M[oó]dulo de la carrera de|Docente invitado en la Especializaci[oó]n|Docente invitado en la Maestr[ií]a|Docente invitado en el Doctorado",
-          "unit_points": 6,
-          "max_points": 120
-        },
-        "Docencia ad honorem / invitado / visitante": {
-          "pattern": "Ad Honorem|Profesor invitado|Profesor visitante|Docente libre",
-          "unit_points": 5,
-          "max_points": 60
-        },
-        "Cursos dictados / ciclos de conferencias": {
-          "pattern": "Ciclo de conferencias|Curso de actualizaci[oó]n|Curso:|Seminario dictado",
-          "unit_points": 4,
-          "max_points": 80
-        }
-      }
-    },
-    "Investigación científica y tecnológica": {
-      "max_points": 540,
-      "items": {
-        "Categoría de Incentivos I-II": {
-          "pattern": "Categor[ií]a II\\b|Categor[ií]a I\\b",
-          "unit_points": 80,
-          "max_points": 160
-        },
-        "Categoría de Incentivos III-V": {
-          "pattern": "Categor[ií]a III\\b|Categor[ií]a IV\\b|Categor[ií]a V\\b",
-          "unit_points": 40,
-          "max_points": 80
-        },
-        "Investigador / Investigador asistente": {
-          "pattern": "Investigador asistente|Investigador(?:\\s+[A-Z][a-z]+)?\\b",
-          "unit_points": 10,
-          "max_points": 60
-        },
-        "Director de proyecto I+D": {
-          "pattern": "Director en el Proyecto de I\\+?D",
-          "unit_points": 25,
-          "max_points": 150
-        },
-        "Co-director de proyecto I+D": {
-          "pattern": "Co-director en el Proyecto de I\\+?D|Co-director en el proyecto de I\\+?D",
-          "unit_points": 18,
-          "max_points": 90
-        },
-        "Investigador en proyecto I+D": {
-          "pattern": "Investigador en el Proyecto de I\\+?D",
-          "unit_points": 8,
-          "max_points": 80
-        },
-        "Becas de investigación obtenidas": {
-          "pattern": "Beca de Perfeccionamiento en la Investigaci[oó]n|Beca de Posdoctorado|Beca de Postgrado/Doctorado|Beca de Especializaci[oó]n|Beca de Otro tipo de beca de Investigaci[oó]n",
-          "unit_points": 10,
-          "max_points": 80
-        },
-        "Estancias de I+D": {
-          "pattern": "Estancia de I\\+?D",
-          "unit_points": 6,
-          "max_points": 30
-        }
-      }
-    },
-    "Producción académica": {
-      "max_points": 470,
-      "items": {
-        "Artículos en revistas internacionales indexadas": {
-          "pattern": "INTERNATIONAL JOURNAL|CURRENT DRUG TARGETS|Therapeutic Advances|Food Chemistry|Biocatalysis and Agricultural Biotechnology|PHARMACEUTICAL DEVELOPMENT AND TECHNOLOGY|Journal of Molecular Structure|IET NANOBIOTECHNOLOGY|CURRENT PHARMACEUTICAL DESIGN",
-          "unit_points": 15,
-          "max_points": 180
-        },
-        "Artículos en revistas nacionales / regionales": {
-          "pattern": "Acta Bioqu[ií]mica Cl[ií]nica Latinoamericana|Sociedad Argentina|Bioan[aá]lisis|Revista de la Sociedad de Biolog[ií]a de Cuyo|Pharmind",
-          "unit_points": 10,
-          "max_points": 120
-        },
-        "Otros artículos en revistas científicas": {
-          "pattern": "\\bJournal of\\b|\\bRevista\\b",
-          "unit_points": 6,
-          "max_points": 60
-        },
-        "Trabajos en congresos (resúmenes, posters, comunicaciones)": {
-          "pattern": "En Libro de Res[uú]menes del Congreso|En Revista de Resumenes del Congreso|En Libro de Res[uú]menes del Evento|En Revista de resumenes del Congreso|Libro de Resumenes del Congreso",
-          "unit_points": 3,
-          "max_points": 60
-        },
-        "Libros, capítulos y materiales didácticos": {
-          "pattern": "Material Did[aá]ctico|Gu[ií]a de Trabajos Pr[aá]cticos|Libro de|Cap[ií]tulo de libro",
-          "unit_points": 12,
-          "max_points": 60
-        },
-        "Tesis de doctorado propia defendida": {
-          "pattern": "Tesis de doctorado :|Tesis de Doctorado :",
-          "unit_points": 40,
-          "max_points": 40
         }
       }
     },
     "Formación de recursos humanos": {
       "max_points": 640,
       "items": {
-        "Dirección de tesis de doctorado": {
+        "Dirección de becas (Doctorado/Posdoctorado)": {
+          "pattern": "Direcci[oó]n de beca (Postgrado|Posgrado|Postgrado/Doctorado|Posdoctorado)",
+          "unit_points": 40,
+          "max_points": 240
+        },
+        "Co-dirección de becas (Doctorado/Posdoctorado)": {
+          "pattern": "Co-direcci[oó]n de beca (Postgrado|Posgrado|Postgrado/Doctorado|Posdoctorado)",
+          "unit_points": 30,
+          "max_points": 180
+        },
+        "Dirección de tesis de Doctorado": {
           "pattern": "Direcci[oó]n de Tesis de Doctorado",
-          "unit_points": 25,
-          "max_points": 200
+          "unit_points": 40,
+          "max_points": 160
         },
-        "Co-dirección de tesis de doctorado": {
+        "Co-dirección de tesis de Doctorado": {
           "pattern": "Co-direcci[oó]n de Tesis de Doctorado",
-          "unit_points": 18,
-          "max_points": 90
-        },
-        "Dirección de trabajos finales / tesinas de grado": {
-          "pattern": "Direcci[oó]n de Tesina o trabajo final de Grado",
-          "unit_points": 6,
-          "max_points": 90
-        },
-        "Dirección de trabajos finales de especialización / maestría": {
-          "pattern": "Direcci[oó]n de Trabajo final de Especializaci[oó]n|Direcci[oó]n de Tesina o trabajo final de Especializaci[oó]n",
-          "unit_points": 10,
-          "max_points": 80
-        },
-        "Dirección de becas (grado / posgrado / CONICET / CIN / MSAL)": {
-          "pattern": "Direcci[oó]n de beca",
-          "unit_points": 8,
+          "unit_points": 30,
           "max_points": 120
         },
-        "Co-dirección de becas": {
-          "pattern": "Co-direcci[oó]n de beca",
-          "unit_points": 6,
-          "max_points": 60
-        },
-        "Dirección / co-dirección de investigadores": {
-          "pattern": "Direcci[oó]n de Investigador:|Co-direcci[oó]n de Investigador:",
-          "unit_points": 8,
+        "Dirección de tesinas y trabajos finales de grado/especialización": {
+          "pattern": "Direcci[oó]n de Tesina o trabajo final de Grado|Direcci[oó]n de Trabajo final de Especializaci[oó]n",
+          "unit_points": 5,
           "max_points": 80
         },
-        "Dirección / co-dirección de pasantes": {
-          "pattern": "Tareas de investigaci[oó]n y desarrollo de Pasante|Capacitaci[oó]n pre-profesional y/o profesional de Pasante",
-          "unit_points": 4,
-          "max_points": 40
+        "Dirección de investigadores y pasantes": {
+          "pattern": "Direcci[oó]n de Investigador|Direcci[oó]n de Tareas de investigaci[oó]n y desarrollo de Pasante|Direcci[oó]n de Capacitaci[oó]n pre-profesional",
+          "unit_points": 5,
+          "max_points": 80
         }
       }
     },
-    "Actividad científica, evaluación y comités": {
+    "Financiamiento CyT y Proyectos": {
+      "max_points": 540,
+      "items": {
+        "Director de proyecto financiado": {
+          "pattern": "Director en el Proyecto de I\\+D|Direcci[oó]n: DIEGO ENRIQUE KASSUHA|Direcci[oó]n: KASSUHA, DIEGO ENRIQUE",
+          "unit_points": 30,
+          "max_points": 240
+        },
+        "Co-director de proyecto financiado": {
+          "pattern": "Co-director en el Proyecto de I\\+D|Co-direcci[oó]n en el Proyecto de I\\+D",
+          "unit_points": 20,
+          "max_points": 160
+        },
+        "Investigador en proyecto financiado": {
+          "pattern": "(Investigador en el Proyecto de I\\+D|Estancia de I\\+D en:)",
+          "unit_points": 10,
+          "max_points": 140
+        },
+        "Becas personales de investigación": {
+          "pattern": "Beca de Posdoctorado|Beca de Perfeccionamiento en la Investigaci[oó]n|Beca de Postgrado/Doctorado|Beca de Especializaci[oó]n",
+          "unit_points": 15,
+          "max_points": 140
+        }
+      }
+    },
+    "Actividades de evaluación y gestión editorial": {
       "max_points": 650,
       "items": {
-        "Miembro de comité editorial de revista": {
-          "pattern": "Integrante del comit[eé] editorial",
+        "Miembro de comité editorial": {
+          "pattern": "Integrante del comité editorial",
           "unit_points": 20,
-          "max_points": 60
+          "max_points": 80
         },
-        "Evaluación de trabajos en revistas (peer review)": {
+        "Evaluación de trabajos en revistas": {
           "pattern": "Evaluaci[oó]n de trabajos en revistas",
           "unit_points": 4,
-          "max_points": 80
+          "max_points": 160
         },
-        "Miembro de comité científico-tecnológico de eventos": {
-          "pattern": "Miembro del comit[eé] cient[ií]fico-tecnol[oó]gico",
-          "unit_points": 8,
-          "max_points": 40
-        },
-        "Organizador general de eventos científicos": {
-          "pattern": "Organizador general",
-          "unit_points": 12,
-          "max_points": 36
-        },
-        "Conferencista": {
-          "pattern": "Modo de participaci[oó]n: Conferencista",
-          "unit_points": 6,
-          "max_points": 36
-        },
-        "Jurado de tesinas / tesis / trabajos finales": {
-          "pattern": "Jurado de tesinas, trabajos finales y/o tesis",
-          "unit_points": 5,
-          "max_points": 60
-        },
-        "Jurado de concursos docentes": {
-          "pattern": "Jurado de concursos docentes",
-          "unit_points": 5,
-          "max_points": 40
-        },
-        "Evaluación de becarios": {
-          "pattern": "Evaluaci[oó]n de becarios",
-          "unit_points": 4,
-          "max_points": 20
-        },
-        "Categorización de docentes investigadores": {
-          "pattern": "Categorizaci[oó]n docentes investigadores",
-          "unit_points": 6,
-          "max_points": 30
-        },
-        "Evaluación de programas y proyectos": {
-          "pattern": "Evaluaci[oó]n de programas y proyectos|AGENCIA NACIONAL DE PROMOCION CIENT",
-          "unit_points": 6,
-          "max_points": 36
-        },
-        "Evaluación y/o acreditación de carreras (CONEAU)": {
-          "pattern": "Evaluaci[oó]n y/o acreditaci[oó]n de carreras de grado y postgrado|CONEAU",
-          "unit_points": 10,
-          "max_points": 40
-        },
-        "Evaluación de planes y/o políticas": {
-          "pattern": "Evaluaci[oó]n de planes y/o pol[ií]ticas",
-          "unit_points": 6,
-          "max_points": 24
-        }
-      }
-    },
-    "Gestión, vinculación y otros antecedentes": {
-      "max_points": 565,
-      "items": {
-        "Jefe de servicio": {
-          "pattern": "Jefe de servicio",
+        "Evaluación de programas, proyectos y planes": {
+          "pattern": "Evaluaci[oó]n de programas y proyectos|Evaluaci[oó]n de planes y/o pol[ií]ticas|AGENCIA NACIONAL DE PROMOCION CIENT Y TECNOLOGICA",
           "unit_points": 15,
-          "max_points": 60
+          "max_points": 150
         },
-        "Membresías en asociaciones científicas y profesionales": {
-          "pattern": "Comisi[oó]n Cient[ií]fica de la Editorial Universitaria|Comit[eé] de expertos|Sociedad Argentina|Colegio Bioqu[ií]mico|Sociedad de Hematolog[ií]a",
-          "unit_points": 4,
-          "max_points": 40
+        "Evaluación y/o acreditación de carreras": {
+          "pattern": "Evaluaci[oó]n y/o acreditaci[oó]n de carreras de grado y postgrado|CONEAU",
+          "unit_points": 20,
+          "max_points": 160
         },
-        "Participación en redes temáticas o institucionales": {
-          "pattern": "Proyecto Redes VIII|Participaci[oó]n en redes tem[aá]ticas|Red Andina de Universidades|ODUCAL|Education Quality Accreditation Agency",
-          "unit_points": 6,
-          "max_points": 36
+        "Jurado de concursos, premios, tesinas": {
+          "pattern": "Jurado de concursos docentes|Jurado de premios|Jurado de tesinas, trabajos finales y/o tesis",
+          "unit_points": 5,
+          "max_points": 100
+        },
+        "Evaluación de becarios y categorización de docentes": {
+          "pattern": "Evaluaci[oó]n de becarios|Categorizaci[oó]n docentes investigadores",
+          "unit_points": 10,
+          "max_points": 100
         }
       }
     },
-    "Premios y desarrollos tecnológicos": {
-      "max_points": 200,
+    "Participación en eventos CyT y actividades profesionales": {
+      "max_points": 470,
       "items": {
-        "Premios y menciones en trabajos científicos": {
-          "pattern": "\\\"Primera Menci[oó]n\\\"|\\\"PRIMERA MENCI[oÓ]N EN TRABAJO CIENT[IÍ]FICO",
+        "Organizador o miembro de comité científico": {
+          "pattern": "Miembro del comité cientifico-tecnol[oó]gico|Organizador general",
+          "unit_points": 15,
+          "max_points": 120
+        },
+        "Conferencista o disertante": {
+          "pattern": "Modo de participación: Conferencista",
+          "unit_points": 10,
+          "max_points": 100
+        },
+        "Asistente a eventos internacionales": {
+          "pattern": "Modo de participación: Asistente",
+          "unit_points": 5,
+          "max_points": 60
+        },
+        "Jefe de servicio / cargo profesional relevante": {
+          "pattern": "Jefe de servicio",
           "unit_points": 20,
           "max_points": 80
         },
-        "Desarrollos tecnológicos / productos": {
+        "Premios y distinciones": {
+          "pattern": "Primera Menci[oó]n|PRIMERA MENCI[oÓ]N EN TRABAJO CIENT[IÍ]FICO",
+          "unit_points": 20,
+          "max_points": 80
+        }
+      }
+    },
+    "Otros antecedentes CyT": {
+      "max_points": 300,
+      "items": {
+        "Membresías en comisiones y comités científicos": {
+          "pattern": "Comisi[oó]n Cient[ií]fica de la Editorial Universitaria|Comit[eé] de expertos de la Sociedad Argentina de Farmacia y Bioqu[ií]mica Industrial",
+          "unit_points": 10,
+          "max_points": 80
+        },
+        "Participación en redes temáticas": {
+          "pattern": "Proyecto Redes VIII|Regi[oó]n Binacional de Educaci[oó]n Coquimbo-San Juan",
+          "unit_points": 10,
+          "max_points": 60
+        },
+        "Desarrollos tecnológicos/organizacionales": {
           "pattern": "Desarrollo de Producto",
-          "unit_points": 25,
-          "max_points": 50
+          "unit_points": 20,
+          "max_points": 80
+        },
+        "Material didáctico sistematizado": {
+          "pattern": "Material Did[aá]ctico Sistematizado|Gu[ií]a de Trabajos Pr[aá]cticos",
+          "unit_points": 10,
+          "max_points": 80
         }
       }
     }
   },
+
   "categorias": {
     "I": {
-      "min_points": 1800,
-      "descripcion": "Investigador con producción y trayectoria excepcional, liderazgo consolidado y fuerte impacto en formación de recursos humanos y gestión."
+      "min_points": 1200,
+      "descripcion": "Investigador con trayectoria consolidada, producción científica sostenida, dirección de proyectos, formación de recursos humanos y fuerte liderazgo académico."
     },
     "II": {
-      "min_points": 1500,
-      "descripcion": "Investigador con producción sostenida, liderazgo en proyectos y sólida formación de recursos humanos."
+      "min_points": 900,
+      "descripcion": "Investigador con producción relevante, dirección o co-dirección de proyectos, participación activa en redes y formación de recursos humanos."
     },
     "III": {
-      "min_points": 1200,
-      "descripcion": "Investigador con buena producción, participación activa en proyectos y alguna experiência en dirección de RRHH."
+      "min_points": 600,
+      "descripcion": "Investigador en consolidación, con producción científica continua, participación en proyectos y primeras experiencias de dirección."
     },
     "IV": {
-      "min_points": 900,
-      "descripcion": "Investigador en consolidación, con producción y participación en proyectos y actividades de evaluación."
-    },
-    "V": {
-      "min_points": 600,
-      "descripcion": "Investigador en desarrollo, con actividad académica y científica inicial en crecimiento."
-    },
-    "VI": {
       "min_points": 300,
-      "descripcion": "Investigador novel, con primeras actividades en docencia, investigación y formación académica."
+      "descripcion": "Investigador en etapa inicial, con producción y participación en proyectos y eventos científicos."
     }
   }
 }
