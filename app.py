@@ -16,7 +16,7 @@ st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
 st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
 
 @st.cache_data
-def load_json(path):
+def load_json(path: str):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -24,7 +24,7 @@ criteria = load_json("criteria.json")
 
 
 # === Funciones de extracción de texto ===
-def extract_text_docx(file):
+def extract_text_docx(file) -> str:
     doc = DocxDocument(file)
     text = "\n".join(p.text for p in doc.paragraphs)
     for t in doc.tables:
@@ -33,7 +33,7 @@ def extract_text_docx(file):
     return text
 
 
-def extract_text_pdf(file):
+def extract_text_pdf(file) -> str:
     if not HAVE_PDF:
         raise RuntimeError("Instalá pdfplumber: pip install pdfplumber")
     chunks = []
@@ -44,67 +44,42 @@ def extract_text_pdf(file):
 
 
 # === Matching genérico ===
-def match_count(pattern, text):
+def match_count(pattern: str, text: str) -> int:
     return len(re.findall(pattern, text, re.IGNORECASE)) if pattern else 0
 
 
-def clip(v, cap):
+def clip(v: float, cap: float) -> float:
     return min(v, cap) if cap else v
 
 
 # === Detección de posgrado COMPLETO (Doctorado / Maestría / Especialización) ===
-def posgrado_completo(titulo_regex, text, window_back=300, window_forward=500):
+def posgrado_completo(titulo_regex: str, text: str,
+                      window_back: int = 200,
+                      window_forward: int = 400) -> int:
     """
-    Cuenta cuántos posgrados COMPLETOS hay (Doctorado / Maestría / Especialización)
-    con estas reglas:
-
-    SE SUMA (1) CUANDO EN LA VENTANA ALREDEDOR DEL TÍTULO:
-    - Aparece el título (Doctorado, Maestría/Magíster, Especialización/Especialista), y
-    - NO aparece 'Actualidad' ni 'En curso', y
-    - Hay alguna señal de que está COMPLETO:
-        * 'Situación del nivel: Completo' (formato CVar)
-        * o 'Año de finalización' / 'Año de egreso'
-        * o un rango de años tipo '2015 - 2019'
-        * o palabras como 'Titulado' o 'Graduado'
-    - Hay al menos un año válido (19xx o 20xx) en la ventana.
-
-    Cualquier posgrado que esté 'Actualidad' o 'En curso' queda automáticamente en 0.
+    Cuenta cuántos posgrados completos hay según las reglas:
+    - Debe aparecer el título (Doctorado / Maestría-Magíster / Especialización-Especialista).
+    - En una ventana de texto alrededor:
+        * NO debe aparecer 'Actualidad'.
+        * Debe aparecer 'Situación del nivel: Completo' (o similar).
+        * Debe aparecer un año válido (19xx o 20xx).
+    Se trabaja por ventanas para evitar regex gigantes que cuelguen la app.
     """
     count = 0
-
     for m in re.finditer(titulo_regex, text, re.IGNORECASE):
         start = max(0, m.start() - window_back)
         end = min(len(text), m.end() + window_forward)
         window = text[start:end]
 
-        # 1) Excluir expresamente posgrados en curso
-        if re.search(r"(Actualidad|En curso)", window, re.IGNORECASE):
+        # Excluir si aparece "Actualidad" en la ventana → en curso
+        if re.search(r"Actualidad", window, re.IGNORECASE):
             continue
 
-        # 2) Marcas de COMPLETO
-        completo = False
-
-        # Formato CVar clásico
-        if re.search(r"Situaci[oó]n del nivel:? *Completo", window, re.IGNORECASE):
-            completo = True
-
-        # Año de finalización / egreso
-        if re.search(r"A[nñ]o de (finalizaci[oó]n|egreso)", window, re.IGNORECASE):
-            completo = True
-
-        # Rango de años 2012 - 2016, etc.
-        if re.search(r"(19|20)\d{2}\s*[-–]\s*(19|20)\d{2}", window):
-            completo = True
-
-        # Palabras generales que indican título obtenido
-        if re.search(r"(Titulado|Graduado)", window, re.IGNORECASE):
-            completo = True
-
-        # Si no encontramos ninguna marca de completo, no se cuenta
-        if not completo:
+        # Requiere "Situación del nivel: Completo"
+        if not re.search(r"Situaci[oó]n del nivel:? *Completo", window, re.IGNORECASE):
             continue
 
-        # 3) Exigir que aparezca al menos UN año, para evitar falsos positivos
+        # Requiere un año válido
         if not re.search(r"(19|20)\d{2}", window):
             continue
 
@@ -113,8 +88,80 @@ def posgrado_completo(titulo_regex, text, window_back=300, window_forward=500):
     return count
 
 
+# === Detección de cursos / diplomaturas de posgrado COMPLETOS ===
+def cursos_diplomaturas_completos(text: str,
+                                  window_back: int = 200,
+                                  window_forward: int = 400) -> int:
+    """
+    Cuenta diplomaturas / diplomados / cursos de posgrado COMPLETOS.
+    Reglas:
+      - Debe aparecer 'Diplomado', 'Diplomatura' o 'Curso de posgrado'.
+      - En una ventana cercana:
+          * NO debe decir 'Actualidad'.
+          * Debe haber un año de finalización (19xx/20xx) o frases tipo
+            'Año de finalización', 'Finalizado', 'Finalización'.
+    """
+    patron_titulo = r"Diplomad[oa]|Diplomatura|Curso de posgrado"
+    count = 0
+
+    for m in re.finditer(patron_titulo, text, re.IGNORECASE):
+        start = max(0, m.start() - window_back)
+        end = min(len(text), m.end() + window_forward)
+        window = text[start:end]
+
+        # Excluir si está en curso
+        if re.search(r"Actualidad", window, re.IGNORECASE):
+            continue
+
+        tiene_anio = re.search(r"(19|20)\d{2}", window)
+        indicador = (
+            re.search(r"Año de finalizaci[oó]n", window, re.IGNORECASE)
+            or re.search(r"Finalizado", window, re.IGNORECASE)
+            or re.search(r"Finalizaci[oó]n", window, re.IGNORECASE)
+        )
+
+        if tiene_anio and indicador:
+            count += 1
+
+    return count
+
+
+# === Detección de títulos de grado / profesorados COMPLETOS ===
+def titulo_completo(titulo_regex: str, text: str,
+                    window_back: int = 200,
+                    window_forward: int = 400) -> int:
+    """
+    Detecta títulos de grado / profesorados COMPLETOS.
+    Regla:
+      - Debe aparecer el patrón del título (Licenciado en..., Profesor en..., etc.).
+      - En una ventana cercana:
+          * NO debe aparecer 'Actualidad'.
+          * Debe haber un año de finalización o indicación de fin de estudios.
+    """
+    count = 0
+    for m in re.finditer(titulo_regex, text, re.IGNORECASE):
+        start = max(0, m.start() - window_back)
+        end = min(len(text), m.end() + window_forward)
+        window = text[start:end]
+
+        if re.search(r"Actualidad", window, re.IGNORECASE):
+            continue
+
+        tiene_anio = re.search(r"(19|20)\d{2}", window)
+        indicador = (
+            re.search(r"Año de finalizaci[oó]n", window, re.IGNORECASE)
+            or re.search(r"Finalizado", window, re.IGNORECASE)
+            or re.search(r"Finalizaci[oó]n", window, re.IGNORECASE)
+        )
+
+        if tiene_anio and indicador:
+            count += 1
+
+    return count
+
+
 # === Categorización basada en criteria.json ===
-def obtener_categoria(total, criteria_dict):
+def obtener_categoria(total: float, criteria_dict: dict):
     """
     Devuelve (clave_categoria, descripcion_categoria) usando el bloque 'categorias'
     de criteria.json. Elige la categoría con mayor min_points <= total.
@@ -135,6 +182,7 @@ def obtener_categoria(total, criteria_dict):
 
 
 uploaded = st.file_uploader("Cargar CV (.docx o .pdf)", type=["docx", "pdf"])
+
 if uploaded:
     ext = uploaded.name.split(".")[-1].lower()
     try:
@@ -158,15 +206,24 @@ if uploaded:
 
         for item, icfg in cfg.get("items", {}).items():
             pattern = icfg.get("pattern", "")
+            c = 0
 
-            # Lógica especial para los tres posgrados
-            if section == "Formación académica y complementaria" and item in ["Doctorado", "Maestría", "Especialización"]:
+            # --- Lógica especial para Formación académica ---
+            if section == "Formación académica y complementaria":
                 if item == "Doctorado":
                     c = posgrado_completo(r"Doctorado", raw_text)
                 elif item == "Maestría":
                     c = posgrado_completo(r"Maestr[ií]a|Mag[íi]ster", raw_text)
-                else:  # Especialización
+                elif item == "Especialización":
                     c = posgrado_completo(r"Especializaci[oó]n|Especialista", raw_text)
+                elif item == "Cursos y diplomaturas de posgrado":
+                    c = cursos_diplomaturas_completos(raw_text)
+                elif item == "Títulos de grado (Licenciatura)":
+                    c = titulo_completo(r"Licenciad[oa] en", raw_text)
+                elif item == "Profesorados universitarios":
+                    c = titulo_completo(r"Profesor(ado)? en", raw_text)
+                else:
+                    c = match_count(pattern, raw_text)
             else:
                 c = match_count(pattern, raw_text)
 
