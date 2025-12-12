@@ -255,20 +255,27 @@
 
   "categorias": {
     "I": {
-      "min_points": 1200,
-      "descripcion": "Investigador con trayectoria consolidada, producción científica sostenida, dirección de proyectos, formación de recursos humanos y fuerte liderazgo académico."
+      "min_points": 1500,
+      "descripcion": "Investigador con trayectoria sobresaliente, liderazgo consolidado, producción científica de alto impacto, dirección de proyectos y formación de recursos humanos avanzada."
     },
     "II": {
-      "min_points": 900,
-      "descripcion": "Investigador con producción relevante, dirección o co-dirección de proyectos, participación activa en redes y formación de recursos humanos."
+      "min_points": 1000,
+      "descripcion": "Investigador con producción muy sólida, participación y dirección en proyectos, contribuciones significativas y formación de recursos humanos."
     },
     "III": {
       "min_points": 600,
-      "descripcion": "Investigador en consolidación, con producción científica continua, participación en proyectos y primeras experiencias de dirección."
+      "descripcion": "Investigador en consolidación, con producción continua, participación activa en investigación y primeras experiencias de liderazgo."
     },
     "IV": {
       "min_points": 300,
-      "descripcion": "Investigador en etapa inicial, con producción y participación en proyectos y eventos científicos."
+      "descripcion": "Investigador en etapa inicial, con producción moderada y participación en proyectos y eventos científicos."
+    },
+    "V": {
+      "min_points": 1,
+      "descripcion": "Investigador novel, con primeros antecedentes científicos o participación incipiente en actividades de investigación."
+    },
+    "VI": {
+      "min_points": 0,
+      "descripcion": "Sin antecedentes de investigación o con trayectoria aún no registrada."
     }
-  }
 }
