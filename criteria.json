@@ -154,7 +154,7 @@
           "max_points": 120
         },
         "Organización de eventos": {
-          "pattern": "(Organizador|Organizadora|Organizaci[oó]n del evento|Miembro del comit[eé]|Comit[eé] cient[ií]fico|Comit[eé] acad[eé]mico|Comit[eé] organizador|Secretar[ií]a (t[eé]cnica|organizadora)|Coordinador/a del evento)",
+          "pattern": "Organizada por",
           "unit_points": 10,
           "max_points": 120
         },
@@ -175,7 +175,7 @@
           "max_points": 80
         },
         "Gestión universitaria o pública": {
-          "pattern": "(Secretari[ao]|Director/a?|Coordinador/a?|Subdirector/a?|Jefe de [aá]rea|Responsable de (?:Acreditaci[oó]n|Calidad|Evaluaci[oó]n|Investigaci[oó]n|Planificaci[oó]n)|Direcci[oó]n de (?:Investigaci[oó]n|Calidad|Planificaci[oó]n)|Secretar[ií]a de (?:Investigaci[oó]n|Ciencia|Tecnolog[ií]a|Educaci[oó]n))",
+          "pattern": "(Secretari[ao]|Director/a?|Coordinador/a?|Ministerio|Gobierno)",
           "unit_points": 20,
           "max_points": 120
         },
