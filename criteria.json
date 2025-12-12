@@ -3,11 +3,23 @@
     "Formación académica y complementaria": {
       "max_points": 800,
       "items": {
-        "Doctorado": { "pattern": "", "unit_points": 400, "max_points": 400 },
-        "Maestría": { "pattern": "", "unit_points": 240, "max_points": 240 },
-        "Especialización": { "pattern": "", "unit_points": 160, "max_points": 160 },
+        "Doctorado": {
+          "pattern": "",
+          "unit_points": 400,
+          "max_points": 400
+        },
+        "Maestría": {
+          "pattern": "",
+          "unit_points": 240,
+          "max_points": 240
+        },
+        "Especialización": {
+          "pattern": "",
+          "unit_points": 160,
+          "max_points": 160
+        },
         "Títulos de grado (Licenciatura)": {
-          "pattern": "(Licenciado en|Licenciatura en)",
+          "pattern": "(Licenciado en|Licenciatura en|Abogado/a?|Contador/a?|Ingeniero/a?|M[eé]dico/a?|Arquitecto/a?)",
           "unit_points": 40,
           "max_points": 40
         },
@@ -17,12 +29,12 @@
           "max_points": 40
         },
         "Cursos y diplomaturas de posgrado": {
-          "pattern": "(Diplomado en|Diplomatura en|Curso de posgrado|Hasta 24 horas|Entre 25 Y 50 horas|Entre 51 Y 100 horas|Entre 101 Y 200 horas)",
+          "pattern": "(Diplomado en|Diplomatura en|Curso de posgrado|Hasta 24 horas|Entre 25 Y 50 horas|Entre 25 y 50 horas|Entre 51 Y 100 horas|Entre 51 y 100 horas|Entre 101 Y 200 horas)",
           "unit_points": 5,
           "max_points": 80
         },
         "Certificados de idiomas": {
-          "pattern": "(Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Italiano|Alem[aá]n|Chino|Japon[eé]s).*(nivel|certificaci[oó]n|curso)",
+          "pattern": "(Idioma|Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Alem[aá]n|Italiano|Chino|Japon[eé]s).*(nivel|certificaci[oó]n|curso|aprobado|First Certificate)",
           "unit_points": 10,
           "max_points": 30
         }
@@ -33,17 +45,17 @@
       "max_points": 600,
       "items": {
         "Artículos en revistas con referato": {
-          "pattern": "(Journal|Revista).*?(ISSN|doi|DOI|vol\\.?|n[uú]m\\.?)",
+          "pattern": "(Journal|Revista|ISSN)",
           "unit_points": 10,
           "max_points": 400
         },
         "Trabajos en libros de resúmenes y congresos": {
-          "pattern": "(Libro de Res[uú]menes|Congreso|Jornadas)",
+          "pattern": "(Libro de Res[uú]menes del Congreso|Revista de Res[uú]menes del Congreso|Libro de res[uú]menes|Congreso|Jornadas)",
           "unit_points": 2,
           "max_points": 200
         },
         "Capítulos de libro o informes institucionales": {
-          "pattern": "(Cap[ií]tulo de libro|ISBN|Editorial Universitaria|En Investigaciones jurisdiccionales)",
+          "pattern": "(Cap[ií]tulo de libro|ISBN|Editorial Universitaria|Ministerio de Educaci[oó]n)",
           "unit_points": 15,
           "max_points": 120
         }
@@ -53,23 +65,33 @@
     "Formación de recursos humanos": {
       "max_points": 640,
       "items": {
-        "Dirección de becas": {
+        "Dirección de becas (Doctorado/Posdoctorado)": {
           "pattern": "Direcci[oó]n de beca",
           "unit_points": 40,
           "max_points": 240
         },
-        "Co-dirección de becas": {
+        "Co-dirección de becas (Doctorado/Posdoctorado)": {
           "pattern": "Co-direcci[oó]n de beca",
           "unit_points": 30,
           "max_points": 180
         },
-        "Dirección de tesis": {
-          "pattern": "Direcci[oó]n de Tesis",
+        "Dirección de tesis de Doctorado": {
+          "pattern": "Direcci[oó]n de Tesis de Doctorado",
           "unit_points": 40,
           "max_points": 160
         },
-        "Dirección de tesinas y TFI": {
-          "pattern": "Direcci[oó]n de Tesina|Trabajo Final Integrador",
+        "Co-dirección de tesis de Doctorado": {
+          "pattern": "Co-direcci[oó]n de Tesis de Doctorado",
+          "unit_points": 30,
+          "max_points": 120
+        },
+        "Dirección de tesinas y trabajos finales": {
+          "pattern": "(Direcci[oó]n de Tesina|Trabajo Final)",
+          "unit_points": 5,
+          "max_points": 80
+        },
+        "Docencia en cursos y seminarios": {
+          "pattern": "(Curso:|Seminario:)",
           "unit_points": 5,
           "max_points": 80
         }
@@ -84,20 +106,20 @@
           "unit_points": 30,
           "max_points": 240
         },
+        "Co-director de proyecto financiado": {
+          "pattern": "Co-director.*Proyecto de I\\+D",
+          "unit_points": 20,
+          "max_points": 160
+        },
         "Investigador en proyecto financiado": {
-          "pattern": "Investigador en el Proyecto de I\\+D|Estancia de I\\+D en:",
+          "pattern": "(Investigador en el Proyecto de I\\+D|Proyecto de I\\+D)",
           "unit_points": 10,
           "max_points": 140
         },
-        "Asistente de investigación": {
-          "pattern": "Asistente de Investigaci[oó]n",
-          "unit_points": 5,
-          "max_points": 60
-        },
-        "Categoría Programa de Incentivos": {
-          "pattern": "Categor[ií]a [IVX]+ del Programa de Incentivos",
+        "Estancias de I+D": {
+          "pattern": "Estancia de I\\+D",
           "unit_points": 20,
-          "max_points": 60
+          "max_points": 160
         }
       }
     },
@@ -105,15 +127,20 @@
     "Actividades de evaluación y gestión editorial": {
       "max_points": 650,
       "items": {
-        "Evaluación de investigadores": {
-          "pattern": "Evaluaci[oó]n de investigadores",
-          "unit_points": 10,
-          "max_points": 80
+        "Miembro de comité o consejo de investigación": {
+          "pattern": "(Comit[eé] de Investigaci[oó]n|Consejo de Investigaci[oó]n)",
+          "unit_points": 15,
+          "max_points": 150
         },
-        "Evaluación y acreditación de carreras": {
-          "pattern": "CONEAU",
+        "Evaluación de investigadores, becarios o docentes": {
+          "pattern": "(Evaluaci[oó]n de investigadores|Evaluaci[oó]n de becarios|Categorizaci[oó]n)",
+          "unit_points": 10,
+          "max_points": 120
+        },
+        "Evaluación y acreditación de carreras (CONEAU)": {
+          "pattern": "(CONEAU|Acreditaci[oó]n de carrera)",
           "unit_points": 20,
-          "max_points": 160
+          "max_points": 200
         }
       }
     },
@@ -121,18 +148,18 @@
     "Participación en eventos CyT y actividades profesionales": {
       "max_points": 470,
       "items": {
-        "Organización de eventos científicos": {
-          "pattern": "(Organizador|Organizadora|Miembro del comit[eé]|Comit[eé] cient[ií]fico|Comit[eé] acad[eé]mico)",
-          "unit_points": 15,
+        "Participación en eventos académicos": {
+          "pattern": "(Evento:|Congreso|Jornadas|Seminario)",
+          "unit_points": 5,
           "max_points": 120
         },
-        "Participación en eventos científicos": {
-          "pattern": "\\d{4} - Evento:",
-          "unit_points": 2,
-          "max_points": 80
+        "Organización de eventos": {
+          "pattern": "(Organizador|Organizadora|Organizaci[oó]n del evento|Miembro del comit[eé]|Comit[eé] cient[ií]fico|Comit[eé] acad[eé]mico|Comit[eé] organizador|Secretar[ií]a (t[eé]cnica|organizadora)|Coordinador/a del evento)",
+          "unit_points": 10,
+          "max_points": 120
         },
         "Cargo profesional relevante": {
-          "pattern": "(Jefe de (?:[AÁ]rea|Departamento)|Subdirector(?:a)?|Director(?:a)? de (?:Investigaci[oó]n|Calidad|Planificaci[oó]n)|Responsable de (?:Investigaci[oó]n|Acreditaci[oó]n|Evaluaci[oó]n))",
+          "pattern": "(Jefe de|Directora?|Subdirector|Responsable)",
           "unit_points": 20,
           "max_points": 80
         }
@@ -142,26 +169,49 @@
     "Otros antecedentes CyT": {
       "max_points": 300,
       "items": {
-        "Membresías científicas": {
-          "pattern": "Membres[ií]a|Asociaci[oó]n",
+        "Membresías académicas o profesionales": {
+          "pattern": "(Membres[ií]a|Asociaci[oó]n)",
           "unit_points": 10,
           "max_points": 80
         },
-        "Gestión académica y científica": {
-          "pattern": "(Secretari[ao](?: de Investigaci[oó]n)?|Director(?:a)? de Investigaci[oó]n|Coordinador(?:a)? Acad[eé]mico)",
+        "Gestión universitaria o pública": {
+          "pattern": "(Secretari[ao]|Director/a?|Coordinador/a?|Subdirector/a?|Jefe de [aá]rea|Responsable de (?:Acreditaci[oó]n|Calidad|Evaluaci[oó]n|Investigaci[oó]n|Planificaci[oó]n)|Direcci[oó]n de (?:Investigaci[oó]n|Calidad|Planificaci[oó]n)|Secretar[ií]a de (?:Investigaci[oó]n|Ciencia|Tecnolog[ií]a|Educaci[oó]n))",
           "unit_points": 20,
           "max_points": 120
+        },
+        "Actividades de extensión y vinculación": {
+          "pattern": "(Extensi[oó]n Universitaria|Programa J[oó]venes)",
+          "unit_points": 10,
+          "max_points": 60
         }
       }
     }
   },
 
   "categorias": {
-    "I": { "min_points": 1500, "descripcion": "Investigador con trayectoria sobresaliente." },
-    "II": { "min_points": 1000, "descripcion": "Investigador con producción muy sólida." },
-    "III": { "min_points": 600, "descripcion": "Investigador en consolidación." },
-    "IV": { "min_points": 300, "descripcion": "Investigador en etapa inicial." },
-    "V": { "min_points": 1, "descripcion": "Investigador novel." },
-    "VI": { "min_points": 0, "descripcion": "Sin antecedentes de investigación." }
+    "I": {
+      "min_points": 1500,
+      "descripcion": "Investigador con trayectoria sobresaliente, liderazgo consolidado, producción científica de alto impacto, dirección de proyectos y formación de recursos humanos avanzada."
+    },
+    "II": {
+      "min_points": 1000,
+      "descripcion": "Investigador con producción muy sólida, participación y dirección en proyectos, contribuciones significativas y formación de recursos humanos."
+    },
+    "III": {
+      "min_points": 600,
+      "descripcion": "Investigador en consolidación, con producción continua, participación activa en investigación y primeras experiencias de liderazgo."
+    },
+    "IV": {
+      "min_points": 300,
+      "descripcion": "Investigador en etapa inicial, con producción moderada y participación en proyectos y eventos científicos."
+    },
+    "V": {
+      "min_points": 1,
+      "descripcion": "Investigador novel, con primeros antecedentes científicos o participación incipiente en actividades de investigación."
+    },
+    "VI": {
+      "min_points": 0,
+      "descripcion": "Sin antecedentes de investigación o con trayectoria aún no registrada."
+    }
   }
 }
