@@ -45,7 +45,7 @@
       "max_points": 600,
       "items": {
         "Artículos en revistas con referato": {
-          "pattern": "(Journal|Revista|ISSN)",
+          "pattern": "(Journal|Revista|ISSN[: ]|Journal of|Revista Cient[ií]fica|Revista Internacional|Revista Acad[eé]mica)",
           "unit_points": 10,
           "max_points": 400
         },
