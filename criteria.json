@@ -34,9 +34,9 @@
           "max_points": 80
         },
         "Certificados de idiomas": {
-  "pattern": "(Idioma|Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Alem[aá]n|Italiano|Chino|Japon[eé]s).*(nivel|certificaci[oó]n|curso)",
-  "unit_points": 10,
-  "max_points": 30
+          "pattern": "(Idioma|Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Alem[aá]n|Italiano|Chino|Japon[eé]s).*(nivel|certificaci[oó]n|curso)",
+          "unit_points": 10,
+          "max_points": 30
         }
       }
     },
@@ -96,7 +96,7 @@
           "max_points": 80
         },
         "Docencia en cursos y diplomaturas de metodología de la investigación": {
-          "pattern": "(Seminario: \"Metodolog[ií]a de la Investigaci[oó]n\"|Diplomatura en Metodolog[ií]a de la In|Diplomatura en Metodolog[ií]a de la Investigaci[oó]n)",
+          "pattern": "(Seminario: \\\"Metodolog[ií]a de la Investigaci[oó]n\\\"|Diplomatura en Metodolog[ií]a de la In|Diplomatura en Metodolog[ií]a de la Investigaci[oó]n)",
           "unit_points": 10,
           "max_points": 60
         }
@@ -245,9 +245,9 @@
           "max_points": 60
         },
         "Gestión y coordinación de políticas científicas o educativas": {
-          "pattern": "Referente Jurisdiccional Red de Investigaci[oó]n Educativa Federal|Referente Jurisdiccional Educaci[oó]n a Distancia|Referente Jurisdiccional de Evaluaci[oó]n de los Planes Jusridiccionales de Alfabetizaci[oó]n",
-          "unit_points": 15,
-          "max_points": 100
+          "pattern": "Referente Jurisdiccional Red de Investigaci[oó]n Educativa Federal|Referente Jurisdiccional Educaci[oó]n a Distancia|Referente Jurisdiccional de Evaluaci[oó]n de los Planes Jusridiccionales de Alfabetizaci[oó]n|Secretar[ií]a de Investigaci[oó]n|Secretario de Investigaci[oó]n|Secretar[ií]a de Investigaci[oó]n y Vinculaci[oó]n Tecnol[oó]gica|Secretar[ií]a de Investigaci[oó]n y V.T.|Direcci[oó]n de Investigaci[oó]n",
+          "unit_points": 20,
+          "max_points": 120
         }
       }
     }
@@ -278,4 +278,5 @@
       "min_points": 0,
       "descripcion": "Sin antecedentes de investigación o con trayectoria aún no registrada."
     }
+  }
 }
