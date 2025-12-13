@@ -5,6 +5,9 @@
     "counting": "count_each_match_then_cap_by_item_max_then_cap_by_section_max",
     "note": "Versión robusta anti-inflación (CVAr reales). Encabezados opcionales, exclusión explícita de docencia donde corresponde, tolerancia a formatos (YYYY, MM/YYYY, YYYY-Actualidad), y reglas para evitar doble conteo entre secciones."
   },
+  "categoria_historica": {
+    "pattern": "Investigador\\s+Categor[ií]a\\s*(I|II|III|IV|V|VI)\\b"
+  },
   "sections": {
     "Formación académica y complementaria": {
       "max_points": 580,
@@ -75,7 +78,7 @@
           "max_points": 120
         },
         "Trabajos en eventos / actas / libro de resúmenes": {
-          "pattern": "(?is)(?:^|\\n)\\s*(?!.*\\bInforme\\s+in[eé]dito\\b)(?:null\\.?\\s*)?[^\\n]{0,500}?\\bEn\\s+(?:Actas|ACTAS|Libro\\s+de\\s+Actas|Libro\\s+de\\s+resumen(?:es)?|Libro\\s+de\\s+Resumenes|Congreso|Jornadas|Simposio|Symposium|Meeting|Taller|Workshop|BIOCELL\\s+abstracts?|Biocell)\\b[^\\n]{0,500}?(?:19\\d{2}|20\\d{2})\\b",
+          "pattern": "(?is)(?:^|\\n)\\s*(?!.*\\bInforme\\s+in[eé]dito\\b)(?:null\\.?\\s*)?[^\\n]{0,500}?\\bEn\\s+(?:Actas|ACTAS|Libro\\s+de\\s+Actas|Libro\\s+de\\s+resúmen(?:es)?|Libro\\s+de\\s+Resumenes|Congreso|Jornadas|Simposio|Symposium|Meeting|Taller|Workshop|BIOCELL\\s+abstracts?|Biocell)\\b[^\\n]{0,500}?(?:19\\d{2}|20\\d{2})\\b",
           "unit_points": 5,
           "max_points": 120
         },
@@ -319,3 +322,4 @@
     }
   }
 }
+
