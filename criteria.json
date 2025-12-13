@@ -1,48 +1,46 @@
 {
   "meta": {
-    "schema_version": "2.0",
-    "engine_assumptions": {
-      "regex_flags_default": "is",
-      "counting": "count_each_match_then_cap_by_item_max_then_cap_by_section_max",
-      "note": "Patterns are anchored to CVar headings/phrases to minimize cross-section inflation."
-    }
+    "schema_version": "2.1",
+    "regex_flags_default": "is",
+    "counting": "count_each_match_then_cap_by_item_max_then_cap_by_section_max",
+    "note": "Versión robusta: mantiene control anti-inflación, pero vuelve opcionales los encabezados y agrega fallbacks tolerantes para que no caigan los puntajes en CVars con títulos distintos."
   },
   "sections": {
     "Formación académica y complementaria": {
       "max_points": 580,
       "items": {
         "Doctorado (finalizado)": {
-          "pattern": "(?is)(?:^|\\n)\\s*FORMACI[OÓ]N\\s+ACAD[ÉE]MICA[\\s\\S]{0,2000}?(?:\\n\\s*)?(?:Doctorado\\b|Doctor\\s+en\\b|Doctor\\s+de\\s+la\\s+Universidad\\b)[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2})|\\b(19\\d{2}|20\\d{2})\\s*-\\s*(19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,120}?Actualidad)",
+          "pattern": "(?is)(?:^|\\n)\\s*(?:FORMACI[OÓ]N\\s+ACAD[ÉE]MICA(?:\\s+Y\\s+COMPLEMENTARIA)?\\b[\\s\\S]{0,3000})?(?:Doctorado\\b|Doctor\\s+en\\b|Doctor\\s+de\\s+la\\s+Universidad\\b)[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2})|\\b(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,120}?Actualidad)",
           "unit_points": 300,
           "max_points": 300
         },
         "Maestría (finalizada)": {
-          "pattern": "(?is)(?:^|\\n)\\s*FORMACI[OÓ]N\\s+ACAD[ÉE]MICA[\\s\\S]{0,2000}?(?:Maestr[ií]a\\b|Mag[ií]ster\\b)[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2})|\\b(19\\d{2}|20\\d{2})\\s*-\\s*(19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,120}?Actualidad)",
+          "pattern": "(?is)(?:^|\\n)\\s*(?:FORMACI[OÓ]N\\s+ACAD[ÉE]MICA(?:\\s+Y\\s+COMPLEMENTARIA)?\\b[\\s\\S]{0,3000})?(?:Maestr[ií]a\\b|Mag[ií]ster\\b)[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2})|\\b(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,120}?Actualidad)",
           "unit_points": 180,
           "max_points": 180
         },
         "Especialización (finalizada)": {
-          "pattern": "(?is)(?:^|\\n)\\s*FORMACI[OÓ]N\\s+ACAD[ÉE]MICA[\\s\\S]{0,2000}?Especializaci[oó]n\\b[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2})|\\b(19\\d{2}|20\\d{2})\\s*-\\s*(19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,120}?Actualidad)",
+          "pattern": "(?is)(?:^|\\n)\\s*(?:FORMACI[OÓ]N\\s+ACAD[ÉE]MICA(?:\\s+Y\\s+COMPLEMENTARIA)?\\b[\\s\\S]{0,3000})?Especializaci[oó]n\\b[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2})|\\b(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,120}?Actualidad)",
           "unit_points": 100,
           "max_points": 100
         },
         "Título de grado (finalizado)": {
-          "pattern": "(?is)(?:^|\\n)\\s*FORMACI[OÓ]N\\s+ACAD[ÉE]MICA[\\s\\S]{0,2500}?(?:\\n\\s*)?(?:Licenciado\\s+en\\b|Licenciatura\\s+en\\b|Abogado\\b|Abogada\\b|M[eé]dic[oa]\\b|M[eé]dica\\s+Veterinaria\\b|Veterinari[oa]\\b|Bioqu[ií]mic[oa]\\b|Contador\\b|Contadora\\b|Ingenier[oa]\\b|Arquitect[oa]\\b)[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2}|\\d{2}/\\d{4})|\\b(19\\d{2}|20\\d{2})\\s*-\\s*(19\\d{2}|20\\d{2})\\b)",
+          "pattern": "(?is)(?:^|\\n)\\s*(?:FORMACI[OÓ]N\\s+ACAD[ÉE]MICA(?:\\s+Y\\s+COMPLEMENTARIA)?\\b[\\s\\S]{0,4000})?(?:Licenciado\\s+en\\b|Licenciatura\\s+en\\b|Abogado/a?\\b|Abogada\\b|Abogado\\b|M[eé]dic[oa]\\b|M[eé]dica\\s+Veterinaria\\b|Veterinari[oa]\\b|Bioqu[ií]mic[oa]\\b|Contador/a?\\b|Contadora\\b|Contador\\b|Ingenier[oa]\\b|Arquitect[oa]\\b)[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2}|\\d{2}/\\d{4})|\\b(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\b)",
           "unit_points": 40,
           "max_points": 40
         },
         "Profesorado/Docencia universitaria (finalizado)": {
-          "pattern": "(?is)(?:^|\\n)\\s*FORMACI[OÓ]N\\s+ACAD[ÉE]MICA[\\s\\S]{0,2000}?(?:Docente\\s+Universitario\\b|Profesorado\\b|Profesor\\s+en\\b|Profesor\\s+Universitari[oa]\\b)[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2}|\\d{2}/\\d{4})|\\b(19\\d{2}|20\\d{2})\\s*-\\s*(19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,120}?Actualidad)",
+          "pattern": "(?is)(?:^|\\n)\\s*(?:FORMACI[OÓ]N\\s+ACAD[ÉE]MICA(?:\\s+Y\\s+COMPLEMENTARIA)?\\b[\\s\\S]{0,3000})?(?:Docente\\s+Universitario\\b|Profesorado\\b|Profesor\\s+en\\b|Profesor\\s+Universitari[oa]\\b|Profesor\\b)[\\s\\S]{0,400}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2}|\\d{2}/\\d{4})|\\b(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,120}?Actualidad)",
           "unit_points": 40,
           "max_points": 40
         },
         "Cursos y diplomaturas (posgrado / actualización)": {
-          "pattern": "(?is)(?:^|\\n)\\s*FORMACI[OÓ]N\\s+COMPLEMENTARIA[\\s\\S]{0,4000}?(?:\\n\\s*)?(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\s+\"[^\"]{5,180}\"\\.[\\s\\S]{0,260}?(?:Hasta\\s*24\\s*horas|Entre\\s*25\\s*Y\\s*50\\s*horas|Entre\\s*51\\s*Y\\s*100\\s*horas|Entre\\s*101\\s*Y\\s*200\\s*horas)",
+          "pattern": "(?is)(?:^|\\n)\\s*(?:(?:FORMACI[OÓ]N\\s+COMPLEMENTARIA|CURSOS\\b|CAPACITACI[OÓ]N\\b|ACTUALIZACI[OÓ]N\\b)[\\s\\S]{0,5000})?(?:(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\s+\"[^\"]{5,180}\"\\.[\\s\\S]{0,260}?(?:Hasta\\s*24\\s*horas|Entre\\s*25\\s*Y\\s*50\\s*horas|Entre\\s*51\\s*Y\\s*100\\s*horas|Entre\\s*101\\s*Y\\s*200\\s*horas)|(?:Diplomatura\\b|Diplomado\\b|Curso\\b|Programa\\s+de\\s+Formaci[oó]n\\b|Actualizaci[oó]n\\b)[\\s\\S]{0,120}?(?:Hasta\\s*24\\s*horas|Entre\\s*25\\s*Y\\s*50\\s*horas|Entre\\s*51\\s*Y\\s*100\\s*horas|Entre\\s*101\\s*Y\\s*200\\s*horas))",
           "unit_points": 5,
           "max_points": 40
         },
         "Idiomas (certificación / nivel)": {
-          "pattern": "(?is)(?:^|\\n)\\s*(?:Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Italiano|Alem[aá]n|Chino|Japon[eé]s)\\s*\\[[^\\]]{0,40}nivel[^\\]]{0,40}\\][^\\n]{0,120}(?:IELTS|DELF|First\\s+Certificate|certificaci[oó]n|\\(\\d{4}\\))?",
+          "pattern": "(?is)(?:Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Italiano|Alem[aá]n|Chino|Japon[eé]s)[\\s\\S]{0,120}?(?:nivel|IELTS|DELF|First\\s+Certificate|certificaci[oó]n|\\(\\d{4}\\))",
           "unit_points": 10,
           "max_points": 20
         }
@@ -51,8 +49,8 @@
     "Producción científica": {
       "max_points": 470,
       "items": {
-        "Artículos en revistas (sección Artículos)": {
-          "pattern": "(?is)\\n\\s*PUBLICACIONES\\s*[\\s\\S]{0,2000}?\\n\\s*Art[ií]culos\\s*\\n[\\s\\S]{0,2000}?(?:\\n\\s*[A-ZÁÉÍÓÚÜÑa-záéíóúüñ].{0,260}?\\\".{10,260}?\\\"\\.?\\s+[^\\n]{2,180}?,\\s*[^\\n]{0,120}?\\((?:19\\d{2}|20\\d{2})\\)\\s*:\\s*[^\\n]{0,260})",
+        "Artículos en revistas (tolerante)": {
+          "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,4000})?(?:(?:\\n\\s*Art[ií]culos\\b[\\s\\S]{0,3000})?(?:\\n\\s*[A-ZÁÉÍÓÚÜÑa-záéíóúüñ].{0,260}?\\\".{10,260}?\\\"\\.?\\s+[^\\n]{2,180}?,\\s*[^\\n]{0,120}?\\((?:19\\d{2}|20\\d{2})\\)\\s*:\\s*[^\\n]{0,260})|(?:(?:^|\\n)\\s*[^\\n]{0,180}?\\\"[^\\n\\\"]{10,240}\\\"\\.?\\s+[^\\n]{0,120}?,\\s*[^\\n]{0,120}?\\((?:19\\d{2}|20\\d{2})\\)\\s*:\\s*[^\\n]*))",
           "unit_points": 40,
           "max_points": 320
         },
@@ -62,7 +60,7 @@
           "max_points": 80
         },
         "Libros/capítulos/ISBN (no artículos)": {
-          "pattern": "(?is)\\n\\s*PUBLICACIONES\\s*[\\s\\S]{0,4000}?(?:\\n\\s*Libros,\\s*cap[ií]tulos\\s+y\\s*trabajos\\s+en\\s+eventos\\b[\\s\\S]{0,3000}?\\bISBN\\s*:?\\s*[0-9\\-]{10,20})",
+          "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,6000})?(?:\\bISBN\\s*:?\\s*[0-9\\-]{10,20}|Cap[ií]tulo\\s+de\\s+libro\\b|Cap[ií]tulos?\\b)",
           "unit_points": 30,
           "max_points": 120
         },
@@ -82,27 +80,27 @@
       "max_points": 640,
       "items": {
         "Dirección de beca (posgrado/doctorado/posdoc)": {
-          "pattern": "(?is)\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,2500}?\\bDirecci[oó]n\\s+de\\s+beca\\b",
+          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,4000})?\\bDirecci[oó]n\\s+de\\s+beca\\b",
           "unit_points": 60,
           "max_points": 240
         },
         "Co-dirección de beca": {
-          "pattern": "(?is)\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,2500}?\\bCo-?direcci[oó]n\\s+de\\s+beca\\b",
+          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,4000})?\\bCo-?direcci[oó]n\\s+de\\s+beca\\b",
           "unit_points": 40,
           "max_points": 160
         },
         "Dirección de tesis de Doctorado": {
-          "pattern": "(?is)\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,2500}?\\bDirecci[oó]n\\s+de\\s+Tesis\\s+de\\s+Doctorado\\b",
+          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,4000})?\\bDirecci[oó]n\\s+de\\s+Tesis\\s+de\\s+Doctorado\\b",
           "unit_points": 120,
           "max_points": 360
         },
         "Co-dirección de tesis de Doctorado": {
-          "pattern": "(?is)\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,2500}?\\bCo-?direcci[oó]n\\s+de\\s+Tesis\\s+de\\s+Doctorado\\b",
+          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,4000})?\\bCo-?direcci[oó]n\\s+de\\s+Tesis\\s+de\\s+Doctorado\\b",
           "unit_points": 80,
           "max_points": 240
         },
         "Dirección de tesina/trabajo final (grado/maestría)": {
-          "pattern": "(?is)\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,2500}?\\bDirecci[oó]n\\s+de\\s+(?:Tesina|Trabajo\\s+final|Trabajo\\s+Final)\\b",
+          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,4000})?\\bDirecci[oó]n\\s+de\\s+(?:Tesina|Trabajo\\s+final|Trabajo\\s+Final)\\b",
           "unit_points": 10,
           "max_points": 120
         }
@@ -112,17 +110,17 @@
       "max_points": 540,
       "items": {
         "Dirección de proyecto financiado (PICT/Proyecto I+D)": {
-          "pattern": "(?is)\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,3000}?(?:\\bDirectora?\\b[^\\n]{0,120}?\\bProyecto\\s+de\\s+I\\+D\\b|\\bDirectora?\\b[^\\n]{0,120}?\\bPICT\\b|\\bDirectora?\\b[^\\n]{0,120}?\\bProyecto\\b[^\\n]{0,120}?\\bFinanciado\\b)",
+          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,6000})?(?:\\bDirectora?\\b[^\\n]{0,120}?\\bProyecto\\s+de\\s+I\\+D\\b|\\bDirectora?\\b[^\\n]{0,120}?\\bPICT\\b|\\bDirectora?\\b[^\\n]{0,160}?\\bProyecto\\b[^\\n]{0,160}?\\bFinanciado\\b)",
           "unit_points": 120,
           "max_points": 360
         },
         "Co-dirección de proyecto financiado": {
-          "pattern": "(?is)\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,3000}?\\bCo-?directora?\\b[^\\n]{0,180}?\\bProyecto\\s+de\\s+I\\+D\\b",
+          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,6000})?\\bCo-?directora?\\b[^\\n]{0,180}?\\bProyecto\\s+de\\s+I\\+D\\b",
           "unit_points": 80,
           "max_points": 240
         },
         "Investigador/a en proyecto financiado (participación/IR)": {
-          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,3000}?\\bInvestigadora?\\b[^\\n]{0,160}?\\bProyecto\\s+de\\s+I\\+D\\b|\\bInvestigador\\s+responsable\\b)",
+          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,6000})?(?:\\bInvestigadora?\\b[^\\n]{0,160}?\\bProyecto\\s+de\\s+I\\+D\\b|\\bInvestigador\\s+responsable\\b)",
           "unit_points": 40,
           "max_points": 200
         },
@@ -161,13 +159,13 @@
     "Participación en eventos CyT y actividades profesionales": {
       "max_points": 470,
       "items": {
-        "Participación en eventos CyT (sección específica)": {
-          "pattern": "(?is)\\n\\s*Participaci[oó]n\\s+en\\s+eventos\\s+CyT\\b[\\s\\S]{0,2500}?(?:\\n\\s*\\d{4}\\s*-\\s*Evento\\s*:\\s*\\\"[^\\n\\\"]{5,240}\\\"\\.|\\bPresentado\\s+en\\s+el\\s+evento\\b)",
+        "Participación en eventos CyT (tolerante)": {
+          "pattern": "(?is)(?:\\n\\s*Participaci[oó]n\\s+en\\s+eventos\\s+CyT\\b[\\s\\S]{0,6000})?(?:\\bEvento\\s*:\\s*|\\bPresentado\\s+en\\s+el\\s+evento\\b|\\bCongreso\\b|\\bJornadas\\b|\\bSymposium\\b|\\bMeeting\\b)",
           "unit_points": 5,
           "max_points": 120
         },
-        "Cargo profesional relevante (ANTECEDENTES EN CyT)": {
-          "pattern": "(?is)\\n\\s*ANTECEDENTES\\s+EN\\s+CYT\\b[\\s\\S]{0,4000}?(?:\\n\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*-\\s*(?:Actualidad|\\d{2}/\\d{4}|\\d{4})\\s*\\n\\s*(?:Coordinadora?|Director/a?|Directora?|Jefe\\s+de\\b|Jefe\\s+de\\s+Subprograma\\b|Secretari[ao]\\b|Coordinador\\b)\\b)",
+        "Cargo profesional relevante (tolerante)": {
+          "pattern": "(?is)(?:\\n\\s*ANTECEDENTES\\s+EN\\s+CYT\\b[\\s\\S]{0,6000})?(?:\\bCoordinadora?\\b|\\bDirector/a?\\b|\\bDirectora?\\b|\\bJefe\\s+de\\b|\\bJefe\\s+de\\s+Subprograma\\b|\\bDirector\\s+de\\s+Carrera\\b|\\bSecretari[ao]\\b|\\bCoordinador\\b)",
           "unit_points": 20,
           "max_points": 80
         }
@@ -182,7 +180,7 @@
           "max_points": 80
         },
         "Gestión universitaria o pública (cargos explícitos)": {
-          "pattern": "(?is)\\n\\s*ANTECEDENTES\\s+EN\\s+CYT\\b[\\s\\S]{0,5000}?(?:\\n\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*-\\s*(?:Actualidad|\\d{2}/\\d{4}|\\d{4})\\s*\\n\\s*(?:Secretari[ao]\\b|Directora?\\b|Coordinadora?\\b|Jefe\\s+de\\b)\\.[^\\n]{0,160}?(?:GOBIERNO\\b|MINISTERIO\\b|UNIVERSIDAD\\b|INTA\\b))",
+          "pattern": "(?is)(?:\\n\\s*ANTECEDENTES\\s+EN\\s+CYT\\b[\\s\\S]{0,8000})?(?:\\bSecretari[ao]\\b|\\bDirectora?\\b|\\bDirector/a?\\b|\\bCoordinadora?\\b|\\bJefe\\s+de\\b)[\\s\\S]{0,200}?(?:GOBIERNO\\b|MINISTERIO\\b|UNIVERSIDAD\\b|INTA\\b|Universidad\\s+Cat[oó]lica\\s+de\\s+Cuyo\\b)",
           "unit_points": 20,
           "max_points": 100
         }
