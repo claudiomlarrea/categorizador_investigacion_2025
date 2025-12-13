@@ -5,9 +5,7 @@
     "counting": "count_each_match_then_cap_by_item_max_then_cap_by_section_max",
     "note": "Versión robusta anti-inflación (CVAr reales). Encabezados opcionales, exclusión explícita de docencia donde corresponde, tolerancia a formatos (YYYY, MM/YYYY, YYYY-Actualidad), y reglas para evitar doble conteo entre secciones."
   },
-  "categoria_historica": {
-    "pattern": "Investigador\\s+Categor[ií]a\\s*(I|II|III|IV|V|VI)\\b"
-  },
+ 
   "sections": {
     "Formación académica y complementaria": {
       "max_points": 580,
