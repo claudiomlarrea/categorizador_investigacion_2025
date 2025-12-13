@@ -294,7 +294,7 @@
   },
   "categorias": {
     "I": {
-      "min_points": 1800,
+      "min_points": 1500,
       "descripcion": "Investigador con trayectoria sobresaliente, liderazgo consolidado, producción científica de alto impacto, dirección de proyectos y formación de recursos humanos avanzada."
     },
     "II": {
