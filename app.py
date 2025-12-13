@@ -15,10 +15,21 @@ st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wid
 st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
 st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def load_json(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        st.error(f"criteria.json inválido: {e.msg} (línea {e.lineno}, columna {e.colno}).")
+        st.info("Tip: revisá comillas, comas finales y backslashes en regex (en JSON deben ser \\\\).")
+        st.stop()
+    except FileNotFoundError:
+        st.error("No se encontró criteria.json en el repositorio (debe estar en la misma carpeta que app.py).")
+        st.stop()
+    except Exception as e:
+        st.error(f"Error leyendo criteria.json: {e}")
+        st.stop()
 
 criteria = load_json("criteria.json")
 
@@ -35,7 +46,7 @@ def extract_text_docx(file):
 
 def extract_text_pdf(file):
     if not HAVE_PDF:
-        raise RuntimeError("Instalá pdfplumber: pip install pdfplumber")
+        raise RuntimeError("Falta pdfplumber. Agregalo en requirements.txt: pdfplumber")
     chunks = []
     with pdfplumber.open(file) as pdf:
         for p in pdf.pages:
@@ -54,17 +65,6 @@ def clip(v, cap):
 
 # === Detección de título / posgrado COMPLETO ===
 def titulacion_completa(titulo_regex, text, window_back=250, window_forward=450):
-    """
-    Cuenta cuántas titulaciones completas hay (Doctorado, Maestría, Especialización,
-    Profesorado, etc.) según las reglas:
-    - Debe aparecer el título (según regex).
-    - En una ventana de texto alrededor:
-        * NO debe aparecer 'Actualidad' (titulación en curso).
-        * Debe aparecer AL MENOS UNO de:
-            - 'Situación del nivel: Completo'
-            - 'Año de finalización:' / 'Año de obtención:' / 'Año de graduación:' con año
-            - Algún año 19xx o 20xx (para formatos viejos)
-    """
     count = 0
     for m in re.finditer(titulo_regex, text, re.IGNORECASE):
         start = max(0, m.start() - window_back)
@@ -98,10 +98,6 @@ def titulacion_completa(titulo_regex, text, window_back=250, window_forward=450)
 
 # === Categorización basada en criteria.json (por puntaje) ===
 def obtener_categoria(total, criteria_dict):
-    """
-    Devuelve (clave_categoria, descripcion_categoria) usando el bloque 'categorias'
-    de criteria.json. Elige la categoría con mayor min_points <= total.
-    """
     categorias = criteria_dict.get("categorias", {})
     mejor_clave = "Sin categoría"
     mejor_desc = ""
@@ -178,10 +174,7 @@ if uploaded:
 
     # === Determinar categoría según puntaje ===
     clave_cat, desc_cat = obtener_categoria(total, criteria)
-    if clave_cat == "Sin categoría":
-        categoria_label = "Sin categoría"
-    else:
-        categoria_label = f"Categoría {clave_cat}"
+    categoria_label = "Sin categoría" if clave_cat == "Sin categoría" else f"Categoría {clave_cat}"
 
     st.markdown("---")
     st.subheader("Puntaje total y categoría")
