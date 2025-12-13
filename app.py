@@ -13,7 +13,7 @@ except Exception:
 
 st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wide")
 st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
-st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
+st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total (respetando categoría histórica).")
 
 @st.cache_data
 def load_json(path):
@@ -96,8 +96,8 @@ def titulacion_completa(titulo_regex, text, window_back=250, window_forward=450)
     return count
 
 
-# === Categorización basada en criteria.json ===
-def obtener_categoria(total, criteria_dict):
+# === Categorización basada en criteria.json (por puntaje) ===
+def obtener_categoria_por_puntaje(total, criteria_dict):
     """
     Devuelve (clave_categoria, descripcion_categoria) usando el bloque 'categorias'
     de criteria.json. Elige la categoría con mayor min_points <= total.
@@ -117,6 +117,49 @@ def obtener_categoria(total, criteria_dict):
     return mejor_clave, mejor_desc
 
 
+# === Categorización histórica (piso) ===
+def _cat_rank(clave):
+    """
+    Rank para comparar categorías: I es mejor que II, etc.
+    Menor rank = mejor categoría.
+    """
+    orden = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6}
+    return orden.get(clave, 999)
+
+
+def detectar_categoria_historica(text, criteria_dict):
+    """
+    Busca una categoría histórica explícita en el CV (piso).
+    Por defecto busca 'Investigador Categoría I/II/III/IV/V/VI'.
+    Puede ser sobreescrito desde criteria.json en la clave 'categoria_historica'.
+    """
+    cfg = criteria_dict.get("categoria_historica", {})
+    pattern = cfg.get(
+        "pattern",
+        r"Investigador\s+Categor[ií]a\s*(I|II|III|IV|V|VI)\b"
+    )
+
+    # Captura todas las apariciones y se queda con la MEJOR (mínimo rank)
+    encontrados = re.findall(pattern, text, flags=re.IGNORECASE)
+    if not encontrados:
+        return None
+
+    # Normalizar a romano en mayúsculas
+    encontrados = [e.upper() for e in encontrados]
+    return sorted(encontrados, key=_cat_rank)[0]
+
+
+def resolver_categoria_final(cat_hist, cat_puntaje):
+    """
+    Regla: la categoría final es la MEJOR entre:
+    - categoría histórica (piso)
+    - categoría por puntaje
+    """
+    if cat_hist and cat_puntaje and cat_puntaje != "Sin categoría":
+        return sorted([cat_hist, cat_puntaje], key=_cat_rank)[0]
+    return cat_hist or (None if cat_puntaje == "Sin categoría" else cat_puntaje)
+
+
 uploaded = st.file_uploader("Cargar CV (.docx o .pdf)", type=["docx", "pdf"])
 if uploaded:
     ext = uploaded.name.split(".")[-1].lower()
@@ -129,6 +172,9 @@ if uploaded:
     st.success(f"Archivo cargado: {uploaded.name}")
     with st.expander("Ver texto extraído (debug)"):
         st.text_area("Texto", raw_text, height=220)
+
+    # === Categoría histórica (piso) ===
+    categoria_historica = detectar_categoria_historica(raw_text, criteria)
 
     results = {}
     total = 0.0
@@ -176,20 +222,33 @@ if uploaded:
         results[section] = {"df": df, "subtotal": subtotal}
         total += subtotal
 
-    # === Determinar categoría según criteria.json ===
-    clave_cat, desc_cat = obtener_categoria(total, criteria)
-    if clave_cat == "Sin categoría":
-        categoria_label = "Sin categoría"
+    # === Categoría por puntaje (como antes) ===
+    cat_puntaje, desc_cat_puntaje = obtener_categoria_por_puntaje(total, criteria)
+
+    # === Categoría final (NUEVO: respeta piso histórico) ===
+    cat_final = resolver_categoria_final(categoria_historica, cat_puntaje)
+
+    if cat_final is None:
+        categoria_label_final = "Sin categoría"
+        desc_cat_final = desc_cat_puntaje if cat_puntaje != "Sin categoría" else ""
     else:
-        categoria_label = f"Categoría {clave_cat}"
+        categoria_label_final = f"Categoría {cat_final}"
+        # la descripción la tomamos del bloque categorias (si existe)
+        desc_cat_final = criteria.get("categorias", {}).get(cat_final, {}).get("descripcion", "") or desc_cat_puntaje
+
+    # Labels auxiliares para mostrar
+    categoria_label_hist = f"Categoría {categoria_historica}" if categoria_historica else "No detectada"
+    categoria_label_puntaje = "Sin categoría" if cat_puntaje == "Sin categoría" else f"Categoría {cat_puntaje}"
 
     st.markdown("---")
     st.subheader("Puntaje total y categoría")
     st.metric("Total acumulado", f"{total:.1f}")
-    st.metric("Categoría alcanzada", categoria_label)
+    st.metric("Categoría histórica (piso)", categoria_label_hist)
+    st.metric("Categoría por puntaje", categoria_label_puntaje)
+    st.metric("Categoría final", categoria_label_final)
 
-    if desc_cat:
-        st.info(f"Descripción de la categoría: {desc_cat}")
+    if desc_cat_final:
+        st.info(f"Descripción de la categoría: {desc_cat_final}")
 
     # === Exportaciones ===
     st.markdown("---")
@@ -200,12 +259,15 @@ if uploaded:
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
             data["df"].to_excel(writer, sheet_name=sec[:31], index=False)
+
         resumen = pd.DataFrame({
             "Sección": list(results.keys()),
             "Subtotal": [results[s]["subtotal"] for s in results]
         })
         resumen.loc[len(resumen)] = ["TOTAL", resumen["Subtotal"].sum()]
-        resumen.loc[len(resumen)] = ["CATEGORÍA", categoria_label]
+        resumen.loc[len(resumen)] = ["CATEGORÍA HISTÓRICA (PISO)", categoria_label_hist]
+        resumen.loc[len(resumen)] = ["CATEGORÍA POR PUNTAJE", categoria_label_puntaje]
+        resumen.loc[len(resumen)] = ["CATEGORÍA FINAL", categoria_label_final]
         resumen.to_excel(writer, sheet_name="RESUMEN", index=False)
 
     st.download_button(
@@ -217,16 +279,18 @@ if uploaded:
     )
 
     # Word
-    def export_word(results_dict, total_pts, cat_label, cat_desc):
+    def export_word(results_dict, total_pts, cat_hist_label, cat_puntaje_label, cat_final_label, cat_desc_final):
         doc = DocxDocument()
         p = doc.add_paragraph("Universidad Católica de Cuyo — Secretaría de Investigación")
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_paragraph("Informe de valoración de CV").alignment = WD_ALIGN_PARAGRAPH.CENTER
         doc.add_paragraph("")
         doc.add_paragraph(f"Puntaje total: {total_pts:.1f}")
-        doc.add_paragraph(f"Categoría alcanzada: {cat_label}")
-        if cat_desc:
-            doc.add_paragraph(cat_desc)
+        doc.add_paragraph(f"Categoría histórica (piso): {cat_hist_label}")
+        doc.add_paragraph(f"Categoría por puntaje: {cat_puntaje_label}")
+        doc.add_paragraph(f"Categoría final: {cat_final_label}")
+        if cat_desc_final:
+            doc.add_paragraph(cat_desc_final)
 
         for sec, data in results_dict.items():
             doc.add_heading(sec, level=2)
@@ -250,7 +314,7 @@ if uploaded:
 
     st.download_button(
         "Descargar informe Word",
-        data=export_word(results, total, categoria_label, desc_cat),
+        data=export_word(results, total, categoria_label_hist, categoria_label_puntaje, categoria_label_final, desc_cat_final),
         file_name="informe_valoracion_cv.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         use_container_width=True
