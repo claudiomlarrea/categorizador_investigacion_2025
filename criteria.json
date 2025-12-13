@@ -11,9 +11,11 @@
       "max_points": 580,
       "items": {
         "Doctorado (finalizado)": {
-          "pattern": "(?is)(?:^|\\n)\\s*(?:FORMACI[OÓ]N\\s+ACAD[ÉE]MICA(?:\\s+Y\\s+COMPLEMENTARIA)?\\b[\\s\\S]{0,3000})?(?:Doctorado\\b|Doctor\\s+en\\b|Doctor\\s+de\\s+la\\s+Universidad\\b)[\\s\\S]{0,500}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2})|\\b(?:19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,140}?(?:Actualidad|En\\s+curso|Cursando))",
-          "unit_points": 300,
-          "max_points": 300
+        "pattern": "(?is)(?:Doctorado\\b|Doctor\\s+en\\b|Doctor\\s+de\\s+la\\s+Universidad\\b)[^\\n]{0,300}?Año\\s+de\\s+finalización:\\s*(19\\d{2}|20\\d{2})(?![^\\n]{0,120}?(Actualidad|En\\s+curso|Cursando))",
+        "unit_points": 300,
+        "max_points": 300
+  }    
+
         },
         "Maestría (finalizada)": {
           "pattern": "(?is)(?:^|\\n)\\s*(?:FORMACI[OÓ]N\\s+ACAD[ÉE]MICA(?:\\s+Y\\s+COMPLEMENTARIA)?\\b[\\s\\S]{0,3000})?(?:Maestr[ií]a\\b|Mag[ií]ster\\b)[\\s\\S]{0,500}?(?:Año\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2}|\\d{2}/\\d{4})|\\b(?:19\\d{2}|20\\d{2})\\b)(?![\\s\\S]{0,140}?(?:Actualidad|En\\s+curso|Cursando))",
