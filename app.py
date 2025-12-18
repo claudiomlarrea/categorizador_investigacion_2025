@@ -128,89 +128,65 @@ def obtener_categoria(total, criteria_dict):
     return mejor_clave, mejor_desc
 
 # ============================================================
-# ✅ OVERRIDE ROBUSTO: títulos FINALIZADOS (anti "Actualidad")
+# ✅ OVERRIDE ROBUSTO: posgrados FINALIZADOS (anti "Actualidad")
 # ============================================================
 IN_CURSO_RX = re.compile(r"\b(Actualidad|En\s+curso|Cursando)\b", re.IGNORECASE)
 
-# evidencia fuerte de finalización (en el MISMO bloque)
 FIN_RX_1 = re.compile(r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(19|20)\d{2}", re.IGNORECASE)
 FIN_RX_2 = re.compile(r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo", re.IGNORECASE)
-# rango con fin explícito (NO Actualidad)
 RANGO_FIN_RX = re.compile(r"(?<!\d)(\d{2}/\d{4}|\d{4})\s*-\s*(\d{2}/\d{4}|\d{4})(?!\d)", re.IGNORECASE)
 
 def _count_finalizado_by_blocks(text: str, titulo_kw_rx: re.Pattern) -> int:
-    """
-    Cuenta entradas (bloques) del CVAr para un título (doctorado/maestría/etc)
-    y solo valida si:
-      - el bloque NO contiene 'Actualidad/En curso/Cursando'
-      - y contiene evidencia fuerte de finalización (FIN_RX_1 o FIN_RX_2 o rango con fin año)
-    Bloque = desde match hasta próximo match del mismo título o hasta 900 chars o doble salto.
-    """
     count = 0
     for m in titulo_kw_rx.finditer(text):
         start = m.start()
-        end = min(len(text), m.end() + 900)  # ventana amplia pero acotada
+        end = min(len(text), m.end() + 1400)  # ventana más amplia para CVAr reales
         window = text[start:end]
 
-        # recortar por doble salto si aparece, típico delimitador de entrada
-        cut = window.find("\n\n")
-        if cut != -1 and cut > 40:
-            window = window[:cut]
+        # si hay marcador de entrada siguiente por fecha al inicio de línea, cortamos ahí
+        nxt = re.search(r"\n\s*(?:\d{2}/\d{4}\s*-\s*(?:\d{2}/\d{4}|Actualidad)|(?:19|20)\d{2})\b", window[80:], re.IGNORECASE)
+        if nxt:
+            window = window[:80 + nxt.start()]
 
         # 1) en curso -> NO cuenta
         if IN_CURSO_RX.search(window):
             continue
 
-        # 2) evidencia de finalización dentro del bloque
-        if FIN_RX_1.search(window) or FIN_RX_2.search(window):
+        # 2) evidencia de finalización dentro del mismo bloque
+        if FIN_RX_1.search(window) or FIN_RX_2.search(window) or RANGO_FIN_RX.search(window):
             count += 1
-            continue
 
-        # 3) rango con fin (YYYY o MM/YYYY) y fin NO Actualidad (ya excluido arriba)
-        #    -> cuenta como finalizado
-        if RANGO_FIN_RX.search(window):
-            count += 1
-            continue
-
-        # si no hay evidencia fuerte, no cuenta
     return count
 
-# patrones de keyword por ítem (solo keyword; el filtro lo hace la función)
 KW_DOCTORADO = re.compile(r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b", re.IGNORECASE)
 KW_MAESTRIA = re.compile(r"\b(Maestr[ií]a|Mag[ií]ster)\b", re.IGNORECASE)
 KW_ESPECIAL = re.compile(r"\b(Especializaci[oó]n|Especialista)\b", re.IGNORECASE)
 
-# Grado y Profesorado: también deben NO estar “Actualidad” y tener evidencia (año o rango fin o “Completo”)
-# pero acá dejamos evidencia: año de finalización / rango fin / año suelto SOLO SI NO hay “Actualidad”
-ANIO_RX = re.compile(r"\b(19|20)\d{2}\b")
+# ============================================================
+# ✅ Grado/Profesorado: usar pattern del JSON, pero excluir “Actualidad” cerca
+# ============================================================
+def count_pattern_excluding_incurso(pattern: str, text: str, look_window: int = 500) -> int:
+    """
+    Cuenta matches del pattern del criteria.json.
+    Si cerca del match (ventana hacia adelante) aparece Actualidad/En curso/Cursando, no cuenta.
+    """
+    if not pattern:
+        return 0
+    try:
+        rx = compile_pattern(pattern, DEFAULT_FLAGS)
+    except re.error as e:
+        st.warning(f"Regex inválida: {e} | patrón: {pattern[:120]}...")
+        return 0
 
-def _count_grado_o_prof_finalizado(text: str, kw_rx: re.Pattern) -> int:
     count = 0
-    for m in kw_rx.finditer(text):
+    for m in rx.finditer(text):
         start = m.start()
-        end = min(len(text), m.end() + 800)
+        end = min(len(text), m.end() + look_window)
         window = text[start:end]
-        cut = window.find("\n\n")
-        if cut != -1 and cut > 40:
-            window = window[:cut]
-
         if IN_CURSO_RX.search(window):
             continue
-
-        # grado/profesorado: admitimos año suelto si no está “Actualidad”
-        if FIN_RX_1.search(window) or FIN_RX_2.search(window) or RANGO_FIN_RX.search(window) or ANIO_RX.search(window):
-            count += 1
+        count += 1
     return count
-
-KW_GRADO = re.compile(
-    r"\b(Licenciad[oa]\s+en|Licenciatura\s+en|Abogad[oa]|M[eé]dic[oa]|Veterinari[oa]|Bioqu[ií]mic[oa]|Contador[oa]?|Ingenier[oa]|Arquitect[oa]|Bromatolog[íi]a|Bromat[oó]log[oa])\b",
-    re.IGNORECASE
-)
-
-KW_PROF = re.compile(
-    r"\b(Docente\s+Universitario|Profesorado|Profesor\s+Universitari[oa]|Profesor\s+en)\b",
-    re.IGNORECASE
-)
 
 # =========================
 # UI
@@ -246,7 +222,7 @@ if uploaded:
             item_cap = float(icfg.get("max_points", 0) or 0)
 
             # =========================
-            # ✅ OVERRIDE SOLO PARA “finalizado”
+            # ✅ OVERRIDES
             # =========================
             if section == "Formación académica y complementaria":
                 if item == "Doctorado (finalizado)":
@@ -255,10 +231,9 @@ if uploaded:
                     c = _count_finalizado_by_blocks(raw_text, KW_MAESTRIA)
                 elif item == "Especialización (finalizada)":
                     c = _count_finalizado_by_blocks(raw_text, KW_ESPECIAL)
-                elif item == "Título de grado (finalizado)":
-                    c = _count_grado_o_prof_finalizado(raw_text, KW_GRADO)
-                elif item == "Profesorado/Docencia universitaria (finalizado)":
-                    c = _count_grado_o_prof_finalizado(raw_text, KW_PROF)
+                elif item in ("Título de grado (finalizado)", "Profesorado/Docencia universitaria (finalizado)"):
+                    # volvemos al pattern del JSON (para no perder casos), pero filtramos “Actualidad” cerca
+                    c = count_pattern_excluding_incurso(pattern, raw_text, look_window=700)
                 else:
                     c = match_count(pattern, raw_text)
             else:
@@ -367,4 +342,3 @@ if uploaded:
 
 else:
     st.info("Subí un archivo para iniciar la valoración.")
-
