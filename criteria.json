@@ -82,7 +82,7 @@
           },
 
           "Libros / ISBN": {
-            "pattern": "(?is)(?:\\bLibros,\\s*cap[ií]tulos\\s+y\\s+trabajos\\s+en\\s+eventos\\b[\\s\\S]{0,40000})\\bISBN\\s*:?\\s*(?:97[89][0-9\\s\\-]{10,25}|[0-9][0-9\\s\\-]{8,25})",
+            "pattern": "(?is)\\bISBN\\s*:?\\s*(?:97[89][0-9\\s\\-]{10,25}|[0-9][0-9\\s\\-]{8,25})",
             "unit_points": 20,
             "max_points": 120
           },
