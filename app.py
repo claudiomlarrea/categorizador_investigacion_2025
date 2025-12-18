@@ -100,6 +100,7 @@ def flags_from_meta(criteria_dict) -> int:
         flags |= re.MULTILINE
     return flags
 
+
 DEFAULT_FLAGS = flags_from_meta(criteria)
 
 
@@ -110,6 +111,7 @@ DEFAULT_FLAGS = flags_from_meta(criteria)
 def compile_pattern(pattern: str, flags: int):
     return re.compile(pattern, flags)
 
+
 def match_count(pattern: str, text: str) -> int:
     if not pattern:
         return 0
@@ -117,8 +119,9 @@ def match_count(pattern: str, text: str) -> int:
         rx = compile_pattern(pattern, DEFAULT_FLAGS)
         return sum(1 for _ in rx.finditer(text))
     except re.error as e:
-        st.warning(f"Regex inválida: {e} | patrón: {pattern[:160]}...")
+        st.warning(f"Regex inválida: {e} | patrón: {pattern[:140]}...")
         return 0
+
 
 def clip(v, cap):
     if cap is None:
@@ -131,63 +134,76 @@ def clip(v, cap):
 
 
 # =========================================================
-# CONTEO ESTRICTO: solo finalizados (ANTI "Actualidad")
-# - Evita el falso positivo del tipo: "2018 - Actualidad"
-# - Requiere evidencia de finalización (año/fecha fin/completo)
+# CONTEOS "FINALIZADO" (ANTI "Actualidad")
+# - Posgrados: estricto (requiere evidencia fuerte de finalización)
+# - Grado/Profesorado: flexible (acepta año suelto o rango con fin)
 # =========================================================
-_FINALIZADO_POSITIVOS = re.compile(
+
+_EN_CURSO_NEGATIVOS = re.compile(r"(?is)\b(Actualidad|En\s+curso|Cursando|Actualmente)\b")
+
+_FINALIZADO_FUERTE = re.compile(
     r"(?is)"
     r"(?:"
     r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo"
     r"|A[nñ]o\s+de\s+(?:finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:19\d{2}|20\d{2})"
+    r"|Fecha\s+de\s+(?:finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:\d{2}/\d{4}|\d{4})"
     r")"
 )
 
-# Rango con fecha de fin explícita (NO Actualidad)
 _RANGO_FIN_EXPLICITO = re.compile(
-    r"(?is)"
-    r"(?:\b(?:19\d{2}|20\d{2}|\d{2}/\d{4})\b)\s*-\s*(?:\b(?:19\d{2}|20\d{2}|\d{2}/\d{4})\b)"
+    r"(?is)\b(?:19\d{2}|20\d{2}|\d{2}/\d{4})\b\s*-\s*\b(?:19\d{2}|20\d{2}|\d{2}/\d{4})\b"
 )
 
-# Marcadores de "en curso"
-_EN_CURSO_NEGATIVOS = re.compile(r"(?is)\b(Actualidad|En\s+curso|Cursando|Actualmente)\b")
+_ANIO_SUELTO = re.compile(r"(?is)\b(19\d{2}|20\d{2})\b")
 
-def count_completed_credential(titulo_regex: str, text: str, window_back: int = 120, window_forward: int = 700) -> int:
+
+def count_completed_postgrado(titulo_regex: str, text: str, window_back: int = 120, window_forward: int = 900) -> int:
     """
-    Cuenta apariciones de un título SOLO si hay evidencia de finalización
-    y NO hay marcadores de cursado ("Actualidad", "En curso", etc.).
+    Posgrados: contar SOLO si NO está en curso y hay evidencia fuerte
+    o rango con fin explícito (no 'Actualidad').
     """
     if not titulo_regex or not text:
         return 0
 
-    try:
-        rx = re.compile(titulo_regex, DEFAULT_FLAGS)
-    except re.error:
-        # Si el regex del título estuviera mal, mejor no contar nada.
-        return 0
-
+    rx = re.compile(titulo_regex, DEFAULT_FLAGS)
     count = 0
+
     for m in rx.finditer(text):
         start = max(0, m.start() - window_back)
         end = min(len(text), m.end() + window_forward)
         window = text[start:end]
 
-        # 1) Excluir si está "en curso"
         if _EN_CURSO_NEGATIVOS.search(window):
             continue
 
-        # 2) Aceptar si hay evidencias fuertes de finalización
-        if _FINALIZADO_POSITIVOS.search(window):
+        if _FINALIZADO_FUERTE.search(window) or _RANGO_FIN_EXPLICITO.search(window):
             count += 1
+
+    return count
+
+
+def count_completed_grado(titulo_regex: str, text: str, window_back: int = 120, window_forward: int = 900) -> int:
+    """
+    Grado/Profesorado: contar si NO está en curso y existe al menos:
+    - rango con fin explícito, o
+    - año suelto dentro de la ventana.
+    """
+    if not titulo_regex or not text:
+        return 0
+
+    rx = re.compile(titulo_regex, DEFAULT_FLAGS)
+    count = 0
+
+    for m in rx.finditer(text):
+        start = max(0, m.start() - window_back)
+        end = min(len(text), m.end() + window_forward)
+        window = text[start:end]
+
+        if _EN_CURSO_NEGATIVOS.search(window):
             continue
 
-        # 3) Aceptar si aparece un rango con fin explícito (p.ej., 08/2020 - 12/2021 / 2010-2012)
-        if _RANGO_FIN_EXPLICITO.search(window):
+        if _RANGO_FIN_EXPLICITO.search(window) or _ANIO_SUELTO.search(window):
             count += 1
-            continue
-
-        # 4) Si no hay evidencia, no contar
-        continue
 
     return count
 
@@ -247,32 +263,38 @@ if uploaded:
             unit = float(icfg.get("unit_points", 0) or 0)
             item_cap = float(icfg.get("max_points", 0) or 0)
 
-            # ---------------------------------------------------------
-            # CORRECCIÓN: títulos "finalizados" (anti-Actualidad)
-            # - Esto soluciona el caso Virna Vinader (Doctorado Actualidad)
-            # ---------------------------------------------------------
             c = None
-            if section == "Formación académica y complementaria" and (
-                "finalizad" in item.lower()  # finalizado/finalizada
-            ):
-                # Definimos regex de "título" (no el pattern completo del JSON)
-                # para ubicar el bloque del título y evaluar finalización estricta.
-                if "doctorado" in item.lower():
-                    c = count_completed_credential(r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b", raw_text)
-                elif "maestr" in item.lower() or "mag" in item.lower():
-                    c = count_completed_credential(r"\b(Maestr[ií]a|Mag[ií]ster)\b", raw_text)
-                elif "especializ" in item.lower() or "especialista" in item.lower():
-                    c = count_completed_credential(r"\b(Especializaci[oó]n|Especialista)\b", raw_text)
-                elif "grado" in item.lower() or "licenci" in item.lower() or "m[eé]dic" in item.lower() or "ingenier" in item.lower():
-                    # título de grado finalizado (cualquier marca de fin)
-                    c = count_completed_credential(
+
+            # --- Reglas "finalizado" robustas solo en Formación académica ---
+            if section == "Formación académica y complementaria" and ("finalizad" in item.lower()):
+                item_l = item.lower()
+
+                # POSGRADOS (estricto)
+                if "doctorado" in item_l:
+                    c = count_completed_postgrado(
+                        r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b",
+                        raw_text
+                    )
+
+                elif "maestr" in item_l or "mag" in item_l:
+                    c = count_completed_postgrado(r"\b(Maestr[ií]a|Mag[ií]ster)\b", raw_text)
+
+                elif "especializ" in item_l or "especialista" in item_l:
+                    c = count_completed_postgrado(r"\b(Especializaci[oó]n|Especialista)\b", raw_text)
+
+                # GRADO / PROFESORADO (flexible)
+                elif "título de grado" in item_l or "grado" in item_l:
+                    c = count_completed_grado(
                         r"\b(Licenciad[oa]\s+en|Licenciatura\s+en|Abogad[oa]|M[eé]dic[oa]|Veterinari[oa]|Bioqu[ií]mic[oa]|Contador[oa]?|Ingenier[oa]|Arquitect[oa])\b",
                         raw_text
                     )
-                elif "profesor" in item.lower() or "docencia universitaria" in item.lower() or "profesorado" in item.lower():
-                    c = count_completed_credential(r"\b(Docente\s+Universitario|Profesorado|Profesor\s+Universitari[oa]|Profesor\s+en)\b", raw_text)
 
-                # Si no pudimos mapearlo, caemos al regex del JSON
+                elif "profesorado" in item_l or "docencia universitaria" in item_l or "profesor" in item_l:
+                    c = count_completed_grado(
+                        r"\b(Docente\s+Universitario|Profesorado|Profesor\s+Universitari[oa]|Profesor\s+en)\b",
+                        raw_text
+                    )
+
                 if c is None:
                     c = match_count(pattern, raw_text)
             else:
@@ -283,9 +305,9 @@ if uploaded:
 
             rows.append({
                 "Ítem": item,
-                "Ocurrencias": c,
-                "Puntaje (tope ítem)": pts,
-                "Tope ítem": item_cap
+                "Ocurrencias": int(c),
+                "Puntaje (tope ítem)": float(pts),
+                "Tope ítem": float(item_cap)
             })
 
             subtotal_raw += pts
@@ -324,7 +346,7 @@ if uploaded:
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
-            sheet = sec[:31]  # <= 31
+            sheet = sec[:31]  # nombres de hoja <= 31
             data["df"].to_excel(writer, sheet_name=sheet, index=False)
 
         resumen = pd.DataFrame({
