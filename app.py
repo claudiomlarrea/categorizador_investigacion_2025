@@ -100,7 +100,6 @@ def flags_from_meta(criteria_dict) -> int:
         flags |= re.MULTILINE
     return flags
 
-
 DEFAULT_FLAGS = flags_from_meta(criteria)
 
 
@@ -109,9 +108,7 @@ DEFAULT_FLAGS = flags_from_meta(criteria)
 # =========================
 @st.cache_data(show_spinner=False)
 def compile_pattern(pattern: str, flags: int):
-    # Cachea compilación por performance
     return re.compile(pattern, flags)
-
 
 def match_count(pattern: str, text: str) -> int:
     if not pattern:
@@ -120,9 +117,8 @@ def match_count(pattern: str, text: str) -> int:
         rx = compile_pattern(pattern, DEFAULT_FLAGS)
         return sum(1 for _ in rx.finditer(text))
     except re.error as e:
-        st.warning(f"Regex inválida: {e} | patrón: {pattern[:120]}...")
+        st.warning(f"Regex inválida: {e} | patrón: {pattern[:160]}...")
         return 0
-
 
 def clip(v, cap):
     if cap is None:
@@ -132,6 +128,68 @@ def clip(v, cap):
     except Exception:
         return v
     return min(v, cap_val)
+
+
+# =========================================================
+# CONTEO ESTRICTO: solo finalizados (ANTI "Actualidad")
+# - Evita el falso positivo del tipo: "2018 - Actualidad"
+# - Requiere evidencia de finalización (año/fecha fin/completo)
+# =========================================================
+_FINALIZADO_POSITIVOS = re.compile(
+    r"(?is)"
+    r"(?:"
+    r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo"
+    r"|A[nñ]o\s+de\s+(?:finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:19\d{2}|20\d{2})"
+    r")"
+)
+
+# Rango con fecha de fin explícita (NO Actualidad)
+_RANGO_FIN_EXPLICITO = re.compile(
+    r"(?is)"
+    r"(?:\b(?:19\d{2}|20\d{2}|\d{2}/\d{4})\b)\s*-\s*(?:\b(?:19\d{2}|20\d{2}|\d{2}/\d{4})\b)"
+)
+
+# Marcadores de "en curso"
+_EN_CURSO_NEGATIVOS = re.compile(r"(?is)\b(Actualidad|En\s+curso|Cursando|Actualmente)\b")
+
+def count_completed_credential(titulo_regex: str, text: str, window_back: int = 120, window_forward: int = 700) -> int:
+    """
+    Cuenta apariciones de un título SOLO si hay evidencia de finalización
+    y NO hay marcadores de cursado ("Actualidad", "En curso", etc.).
+    """
+    if not titulo_regex or not text:
+        return 0
+
+    try:
+        rx = re.compile(titulo_regex, DEFAULT_FLAGS)
+    except re.error:
+        # Si el regex del título estuviera mal, mejor no contar nada.
+        return 0
+
+    count = 0
+    for m in rx.finditer(text):
+        start = max(0, m.start() - window_back)
+        end = min(len(text), m.end() + window_forward)
+        window = text[start:end]
+
+        # 1) Excluir si está "en curso"
+        if _EN_CURSO_NEGATIVOS.search(window):
+            continue
+
+        # 2) Aceptar si hay evidencias fuertes de finalización
+        if _FINALIZADO_POSITIVOS.search(window):
+            count += 1
+            continue
+
+        # 3) Aceptar si aparece un rango con fin explícito (p.ej., 08/2020 - 12/2021 / 2010-2012)
+        if _RANGO_FIN_EXPLICITO.search(window):
+            count += 1
+            continue
+
+        # 4) Si no hay evidencia, no contar
+        continue
+
+    return count
 
 
 # =========================
@@ -189,7 +247,36 @@ if uploaded:
             unit = float(icfg.get("unit_points", 0) or 0)
             item_cap = float(icfg.get("max_points", 0) or 0)
 
-            c = match_count(pattern, raw_text)
+            # ---------------------------------------------------------
+            # CORRECCIÓN: títulos "finalizados" (anti-Actualidad)
+            # - Esto soluciona el caso Virna Vinader (Doctorado Actualidad)
+            # ---------------------------------------------------------
+            c = None
+            if section == "Formación académica y complementaria" and (
+                "finalizad" in item.lower()  # finalizado/finalizada
+            ):
+                # Definimos regex de "título" (no el pattern completo del JSON)
+                # para ubicar el bloque del título y evaluar finalización estricta.
+                if "doctorado" in item.lower():
+                    c = count_completed_credential(r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b", raw_text)
+                elif "maestr" in item.lower() or "mag" in item.lower():
+                    c = count_completed_credential(r"\b(Maestr[ií]a|Mag[ií]ster)\b", raw_text)
+                elif "especializ" in item.lower() or "especialista" in item.lower():
+                    c = count_completed_credential(r"\b(Especializaci[oó]n|Especialista)\b", raw_text)
+                elif "grado" in item.lower() or "licenci" in item.lower() or "m[eé]dic" in item.lower() or "ingenier" in item.lower():
+                    # título de grado finalizado (cualquier marca de fin)
+                    c = count_completed_credential(
+                        r"\b(Licenciad[oa]\s+en|Licenciatura\s+en|Abogad[oa]|M[eé]dic[oa]|Veterinari[oa]|Bioqu[ií]mic[oa]|Contador[oa]?|Ingenier[oa]|Arquitect[oa])\b",
+                        raw_text
+                    )
+                elif "profesor" in item.lower() or "docencia universitaria" in item.lower() or "profesorado" in item.lower():
+                    c = count_completed_credential(r"\b(Docente\s+Universitario|Profesorado|Profesor\s+Universitari[oa]|Profesor\s+en)\b", raw_text)
+
+                # Si no pudimos mapearlo, caemos al regex del JSON
+                if c is None:
+                    c = match_count(pattern, raw_text)
+            else:
+                c = match_count(pattern, raw_text)
 
             pts_raw = c * unit
             pts = clip(pts_raw, item_cap)
@@ -237,8 +324,7 @@ if uploaded:
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
-            # nombres de hoja <= 31
-            sheet = sec[:31]
+            sheet = sec[:31]  # <= 31
             data["df"].to_excel(writer, sheet_name=sheet, index=False)
 
         resumen = pd.DataFrame({
@@ -299,10 +385,3 @@ if uploaded:
 
 else:
     st.info("Subí un archivo para iniciar la valoración.")
-
-
-# ==========================================================
-# NOTA opcional:
-# Si querés reintroducir “titulacion_completa”, lo hacemos,
-# pero SOLO si mapeamos exactamente los nombres de ítems del JSON.
-# ==========================================================
