@@ -48,6 +48,17 @@
           "pattern": "(?is)(?:^|\\n)\\s*(?:(?:FORMACI[OÓ]N\\s+COMPLEMENTARIA|CURSOS\\b|CAPACITACI[OÓ]N\\b|ACTUALIZACI[OÓ]N\\b)[\\s\\S]{0,8000})?(?:\\b(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\b\\s+\\\"[^\\\"]{5,200}\\\"\\b)(?![\\s\\S]{0,200}?\\b(?:Hasta\\s*24\\s*horas|Entre\\s*25\\s*Y\\s*50\\s*horas|Entre\\s*51\\s*Y\\s*100\\s*horas|Entre\\s*101\\s*Y\\s*200\\s*horas)\\b)",
           "unit_points": 2,
           "max_points": 20
+          "Nivel medio / secundario (no puntúa)": {
+        },
+       "Nivel medio / secundario (no puntúa)": {
+        "pattern": "(?is)\\bNivel\\s+medio\\b|\\bSecundari[ao]\\b|\\bPolimodal\\b|\\bBachiller(?:ato)?\\b",
+        "unit_points": 0,
+        "max_points": 0
+        },
+        "Nivel básico / primario (no puntúa)": {
+        "pattern": "(?is)\\bNivel\\s+b[aá]sico\\b|\\bPrimari[ao]\\b",
+        "unit_points": 0,
+        "max_points": 0
         },
         "Idiomas (nivel declarado)": {
           "pattern": "(?is)(?:Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Italiano|Alem[aá]n|Chino|Japon[eé]s)\\s*\\[[^\\]]{0,80}?nivel[^\\]]{0,80}?\\][\\s\\S]{0,160}?(?:\\(\\d{4}\\)|\\b\\d{4}\\b|certificaci[oó]n|IELTS|TOEFL|DELF|First\\s+Certificate)",
