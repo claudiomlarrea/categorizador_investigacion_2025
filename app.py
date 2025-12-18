@@ -66,29 +66,31 @@ def clip(v, cap):
 # === Detección de título / posgrado COMPLETO ===
 def titulacion_completa(titulo_regex, text, window_back=250, window_forward=450):
     count = 0
+
     for m in re.finditer(titulo_regex, text, re.IGNORECASE):
         start = max(0, m.start() - window_back)
         end = min(len(text), m.end() + window_forward)
         window = text[start:end]
 
-        # 1) Excluir si aparece "Actualidad" (en curso)
-        if re.search(r"Actualidad", window, re.IGNORECASE):
+        # 1) Excluir explícitamente títulos EN CURSO
+        if re.search(r"\b(Actualidad|En\s+curso|Cursando)\b", window, re.IGNORECASE):
             continue
 
-        # 2) Indicadores de finalización / completitud
+        # 2) Indicadores FUERTES de finalización (OBLIGATORIOS)
         tiene_situacion_completa = re.search(
-            r"Situaci[oó]n del nivel:? *Completo", window, re.IGNORECASE
+            r"Situaci[oó]n del nivel\s*:\s*Completo",
+            window,
+            re.IGNORECASE
         )
 
         tiene_anio_finalizacion = re.search(
             r"A[nñ]o de (finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(19|20)\d{2}",
             window,
-            re.IGNORECASE,
+            re.IGNORECASE
         )
 
-        tiene_anio_suelto = re.search(r"(19|20)\d{2}", window)
-
-        if not (tiene_situacion_completa or tiene_anio_finalizacion or tiene_anio_suelto):
+        # 🔒 CLAVE: eliminamos el "año suelto" para posgrados
+        if not (tiene_situacion_completa or tiene_anio_finalizacion):
             continue
 
         count += 1
