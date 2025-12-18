@@ -40,24 +40,24 @@
           "max_points": 40
         },
         "Cursos/Diplomaturas con horas (Hasta/Entre)": {
-          "pattern": "(?is)(?:^|\\n)\\s*(?:(?:FORMACI[OÓ]N\\s+COMPLEMENTARIA|CURSOS\\b|CAPACITACI[OÓ]N\\b|ACTUALIZACI[OÓ]N\\b)[\\s\\S]{0,8000})?(?:\\b(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\b[\\s\\S]{0,260}?\\b(?:Hasta\\s*24\\s*horas|Entre\\s*25\\s*Y\\s*50\\s*horas|Entre\\s*51\\s*Y\\s*100\\s*horas|Entre\\s*101\\s*Y\\s*200\\s*horas)\\b|\\b(?:Diplomatura|Diplomado|Curso|Programa\\s+de\\s+Tecnolog[ií]a\\s+y\\s+Calidad|Programa\\s+de\\s+Formaci[oó]n)\\b[\\s\\S]{0,260}?\\b(?:Hasta\\s*24\\s*horas|Entre\\s*25\\s*Y\\s*50\\s*horas|Entre\\s*51\\s*Y\\s*100\\s*horas|Entre\\s*101\\s*Y\\s*200\\s*horas)\\b)",
+          "pattern": "(?is)(?:^|\\n)\\s*(?:(?:\\d{2}/\\d{4})\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)|\\b(?:19\\d{2}|20\\d{2})\\b)\\s+[^\\n]{0,160}?(?:Curso|Cursos|Diplomatura|Diplomado|Seminario|Taller|Capacitaci[oó]n|Actualizaci[oó]n|Posgrado)\\b[\\s\\S]{0,1200}?\\b(?:\\d{1,4})\\s*(?:hs\\.?|h\\.?|horas)\\b[\\s\\S]{0,200}?(?=(?:\\n\\s*(?:(?:\\d{2}/\\d{4})\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)|\\b(?:19\\d{2}|20\\d{2})\\b))|\\Z)",
           "unit_points": 5,
           "max_points": 40
         },
         "Cursos/Diplomaturas sin horas (fallback por año + título)": {
-          "pattern": "(?is)(?:^|\\n)\\s*(?:(?:FORMACI[OÓ]N\\s+COMPLEMENTARIA|CURSOS\\b|CAPACITACI[OÓ]N\\b|ACTUALIZACI[OÓ]N\\b)[\\s\\S]{0,8000})?(?:\\b(?:19\\d{2}|20\\d{2})\\s*-\\s*(?:19\\d{2}|20\\d{2})\\b\\s+\\\"[^\\\"]{5,200}\\\"\\b)(?![\\s\\S]{0,200}?\\b(?:Hasta\\s*24\\s*horas|Entre\\s*25\\s*Y\\s*50\\s*horas|Entre\\s*51\\s*Y\\s*100\\s*horas|Entre\\s*101\\s*Y\\s*200\\s*horas)\\b)",
+          "pattern": "(?is)(?:^|\\n)\\s*(?:(?:\\d{2}/\\d{4})\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)|\\b(?:19\\d{2}|20\\d{2})\\b)\\s+[^\\n]{0,160}?(?:Curso|Cursos|Diplomatura|Diplomado|Seminario|Taller|Capacitaci[oó]n|Actualizaci[oó]n|Posgrado)\\b(?![\\s\\S]{0,1200}?\\b\\d{1,4}\\s*(?:hs\\.?|h\\.?|horas)\\b)[\\s\\S]{0,1200}?(?=(?:\\n\\s*(?:(?:\\d{2}/\\d{4})\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)|\\b(?:19\\d{2}|20\\d{2})\\b))|\\Z)",
           "unit_points": 2,
           "max_points": 20
         },
        "Nivel medio / secundario (no puntúa)": {
-        "pattern": "(?is)\\bNivel\\s+medio\\b|\\bSecundari[ao]\\b|\\bPolimodal\\b|\\bBachiller(?:ato)?\\b",
-        "unit_points": 0,
-        "max_points": 0
+          "pattern": "(?is)\\bNivel\\s+medio\\b|\\bSecundari[ao]\\b|\\bPolimodal\\b|\\bBachiller(?:ato)?\\b",
+          "unit_points": 0,
+          "max_points": 0
         },
         "Nivel básico / primario (no puntúa)": {
-        "pattern": "(?is)\\bNivel\\s+b[aá]sico\\b|\\bPrimari[ao]\\b",
-        "unit_points": 0,
-        "max_points": 0
+          "pattern": "(?is)\\bNivel\\s+b[aá]sico\\b|\\bPrimari[ao]\\b",
+          "unit_points": 0,
+          "max_points": 0
         },
         "Idiomas (nivel declarado)": {
           "pattern": "(?is)(?:Ingl[eé]s|Franc[eé]s|Portugu[eé]s|Italiano|Alem[aá]n|Chino|Japon[eé]s)\\s*\\[[^\\]]{0,80}?nivel[^\\]]{0,80}?\\][\\s\\S]{0,160}?(?:\\(\\d{4}\\)|\\b\\d{4}\\b|certificaci[oó]n|IELTS|TOEFL|DELF|First\\s+Certificate)",
@@ -283,27 +283,31 @@
       "max_points": 200,
       "items": {
         "Programa de Incentivos (Categoría III/IV)": {
-          "pattern": "(?is)\\bCategor[ií]a\\s+(?:III|IV)\\s+del\\s+Programa\\s+de\\s+Incentivos\\b",
-          "unit_points": 10,
-          "max_points": 40
-        },
-        "Redes temáticas o institucionales": {
-          "pattern": "(?is)\\bParticipaci[oó]n\\s+en\\s+redes\\s+tem[aá]ticas\\s+o\\s+institucionales\\b[\\s\\S]{0,2000}?(?:\\bRed\\b|\\bEncuentro\\b|\\bESCUELAGRO\\b)",
+          "pattern": "(?ims)^\\s*(?:Categor[ií]a\\s+(?:III|IV)\\b|Programa\\s+de\\s+Incentivos\\b|Incentivos\\s+a\\s+Docentes\\b)[\\s\\S]*?(?=^\\s*(?:Categor[ií]a\\s+(?:III|IV)\\b|Programa\\s+de\\s+Incentivos\\b|Red(?:es)?\\b|Desarrollo(?:s)?\\b|Gesti[oó]n\\b|Extensi[oó]n\\b|\\Z))",
           "unit_points": 5,
           "max_points": 40
         },
-        "Desarrollos tecnológicos/organizacionales/socio-comunitarios": {
-          "pattern": "(?is)\\bDESARROLLOS\\s+TECNOL[ÓO]GICOS,\\s+ORGANIZACIONALES\\s+Y\\s+SOCIO\\s+COMUNITARIOS\\b[\\s\\S]{0,3000}?(?:\\bDesarrollo\\b|\\bModelo\\s+de\\s+gesti[oó]n\\b)",
-          "unit_points": 10,
+
+        "Redes temáticas o institucionales": {
+          "pattern": "(?ims)^\\s*(?:Red(?:es)?\\b|Red\\s+tem[aá]tica\\b|Red\\s+institucional\\b|Network\\b|Miembro\\s+de\\s+la\\s+red\\b|Integrante\\s+de\\s+red\\b)[\\s\\S]*?(?=^\\s*(?:Red(?:es)?\\b|Desarrollo(?:s)?\\b|Gesti[oó]n\\b|Extensi[oó]n\\b|Programa\\s+de\\s+Incentivos\\b|\\Z))",
+          "unit_points": 5,
           "max_points": 40
         },
+
+        "Desarrollos tecnológicos/organizacionales/socio-comunitarios": {
+          "pattern": "(?ims)^\\s*(?:Desarrollo(?:s)?\\b|Producto\\b|Prototipo\\b|Software\\b|Sistema\\b|Herramienta\\b|Plataforma\\b|Modelo\\b|Manual\\b|Gu[ií]a\\b|Procedimiento\\b|Innovaci[oó]n\\b|Transferencia\\b|Vinculaci[oó]n\\b)[\\s\\S]*?(?=^\\s*(?:Red(?:es)?\\b|Desarrollo(?:s)?\\b|Gesti[oó]n\\b|Extensi[oó]n\\b|Programa\\s+de\\s+Incentivos\\b|\\Z))",
+          "unit_points": 5,
+          "max_points": 40
+        },
+
         "Gestión universitaria (cargos de gestión; no docencia)": {
-          "pattern": "(?is)(?:\\n\\s*ANTECEDENTES\\s+EN\\s+CYT\\b[\\s\\S]{0,16000})?\\b(?:Decano\\b|Decana\\b|Secretario\\b|Secretaria\\b|Director\\b|Directora\\b|Coordinador\\b|Coordinadora\\b|Consejero\\b|Consejera\\b|Responsable\\s+de\\s+grupo\\b)\\b(?![\\s\\S]{0,120}?\\b(?:Profesora?|Profesor|C[áa]tedra|Dictado\\s+de\\s+clases|parciales|finales|Ad\\s+Honorem|Rentado|Titular|Adjunto|Asociado)\\b)",
-          "unit_points": 15,
+          "pattern": "(?ims)^\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{2}/\\d{4}|\\d{4})?.*?(?:Secretari[oa]\\b|Director(?:a)?\\b|Coordinador(?:a)?\\b|Decan(?:o|a)\\b|Vicedecan(?:o|a)\\b|Rector(?:a)?\\b|Vicerrector(?:a)?\\b|Consejo\\b|Comisi[oó]n\\b|CAI\\b|Comit[eé]\\b|Junta\\b|Departamento\\b)[\\s\\S]*?(?=^\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
+          "unit_points": 3,
           "max_points": 60
         },
+
         "Extensión (charlas/ciclos/columnas/divulgación) (puntaje bajo)": {
-          "pattern": "(?is)\\bActividades\\s+de\\s+Extensi[oó]n\\b[\\s\\S]{0,12000}?(?:\\\"[^\\\"]{6,260}\\\"|Ciclo\\s+de\\s+charlas|Columnas\\s+sobre|Semana\\s+del\\s+Alzheimer|Webinar|Charla\\s+a\\s+la\\s+Comunidad|Difundir\\s+conocimientos)",
+          "pattern": "(?ims)^\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{2}/\\d{4}|\\d{4})?.*?(?:Extensi[oó]n\\b|Divulgaci[oó]n\\b|Difusi[oó]n\\b|Charla\\b|Conferencia\\b|Ciclo\\b|Columna\\b|Webinar\\b|Taller\\b|Jornada\\b|Semana\\s+tem[aá]tica\\b|Programa\\b)[\\s\\S]*?(?=^\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 2,
           "max_points": 40
         }
@@ -313,12 +317,12 @@
       "max_points": 0,
       "items": {
         "Docencia en Antecedentes (ignorar para CyT)": {
-          "pattern": "(?is)(?:\\n\\s*ANTECEDENTES\\s+EN\\s+CYT\\b[\\s\\S]{0,16000})?\\bProfesora?\\b[\\s\\S]{0,200}?\\b(?:C[áa]tedra|Dictado\\s+de\\s+clases|parciales|finales)\\b",
+          "pattern": "(?ims)^\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{2}/\\d{4}|\\d{4})?.*?(?:Docencia\\b|Profesor(?:a)?\\b|Docente\\b|C[aá]tedra\\b|Asignatura\\b|Horas\\s+c[aá]tedra\\b|Adjunt[oa]\\b|Titular\\b|JTP\\b|Ayudante\\b)\\b[\\s\\S]*?(?=^\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 0,
           "max_points": 0
         },
         "Cursos listados dentro de Antecedentes (evitar doble conteo)": {
-          "pattern": "(?is)(?:\\n\\s*ANTECEDENTES\\s+EN\\s+CYT\\b[\\s\\S]{0,16000})?\\bCurso\\s*:\\s*\\\"",
+          "pattern": "(?ims)^\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{2}/\\d{4}|\\d{4})?.*?(?:Curso\\b|Diplomad(?:o|a)\\b|Diplomatura\\b|Capacitaci[oó]n\\b|Actualizaci[oó]n\\b|Formaci[oó]n\\s+complementaria\\b|Carga\\s+horaria\\b|Horas\\b|hs\\.?\\b)\\b[\\s\\S]*?(?=^\\s*(?:\\d{2}/\\d{4}|\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 0,
           "max_points": 0
         }
