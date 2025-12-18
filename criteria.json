@@ -66,36 +66,46 @@
         }
       }
     },
-    "Producción científica": {
-      "max_points": 470,
-      "items": {
-        "Artículos en revistas (tolerante y multilínea)": {
-          "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,12000})?(?:\\n\\s*Art[ií]culos\\b[\\s\\S]{0,9000})?(?:^|\\n)\\s*(?!.*\\b(?:informe\\s+in[eé]dito|Informe\\s+in[eé]dito|Tesis\\s+de\\s+|Tesis\\s+de\\s+doctorado|Tesis\\s+de\\s+grado)\\b)(?:null\\.?\\s*)?[A-ZÁÉÍÓÚÜÑa-záéíóúüñ].{0,500}?\\\".{10,300}?\\\"\\.?\\s+[^\\n]{2,220}?,\\s*[^\\n]{0,200}?(?:\\((?:19\\d{2}|20\\d{2})\\)|\\b(?:19\\d{2}|20\\d{2})\\b)[^\\n]{0,300}?",
-          "unit_points": 40,
-          "max_points": 320
-        },
-        "Artículos con DOI explícito": {
-          "pattern": "(?is)\\bdoi\\s*:\\s*10\\.[0-9]{4,9}/[^\\s\\)\\]]+",
-          "unit_points": 40,
-          "max_points": 80
-        },
-        "Capítulos de libro / ISBN": {
-          "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,16000})?(?:\\bCap[ií]tulo\\s+de\\s+libro\\b|\\bCap[ií]tulos?\\b|\\bISBN\\s*:?\\s*[0-9\\-]{10,20})",
-          "unit_points": 30,
-          "max_points": 120
-        },
-        "Trabajos en eventos / actas / libro de resúmenes": {
-          "pattern": "(?is)(?:^|\\n)\\s*(?!.*\\bInforme\\s+in[eé]dito\\b)(?:null\\.?\\s*)?[^\\n]{0,500}?\\bEn\\s+(?:Actas|ACTAS|Libro\\s+de\\s+Actas|Libro\\s+de\\s+resúmen(?:es)?|Libro\\s+de\\s+Resumenes|Congreso|Jornadas|Simposio|Symposium|Meeting|Taller|Workshop|BIOCELL\\s+abstracts?|Biocell)\\b[^\\n]{0,500}?(?:19\\d{2}|20\\d{2})\\b",
-          "unit_points": 5,
-          "max_points": 120
-        },
-        "Informes inéditos / tesis (excluir de publicaciones)": {
-          "pattern": "(?is)(?:^|\\n)\\s*(?:Informe\\s+in[eé]dito|inform[eé]\\s+in[eé]dito|Tesis\\s+de\\s+grado\\s*:|Tesis\\s+de\\s+maestr[ií]a\\s*:|Tesis\\s+de\\s+doctorado\\s*:)",
-          "unit_points": 0,
-          "max_points": 0
+      "Producción científica": {
+        "max_points": 470,
+        "items": {
+          "Artículos en revistas (tolerante y multilínea)": {
+            "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,12000})?(?:\\n\\s*Art[ií]culos\\b[\\s\\S]{0,9000})?(?:^|\\n)\\s*(?!.*\\b(?:informe\\s+in[eé]dito|Informe\\s+in[eé]dito|Tesis\\s+de\\s+|Tesis\\s+de\\s+doctorado|Tesis\\s+de\\s+grado)\\b)(?:null\\.?\\s*)?[A-ZÁÉÍÓÚÜÑa-záéíóúüñ].{0,800}?(?:\\\".{10,300}?\\\"|\\b(?!doi\\b)(?!ISBN\\b).{10,220}?\\b)\\.?\\s+[^\\n]{2,260}?,\\s*[^\\n]{0,240}?(?:\\((?:19\\d{2}|20\\d{2})\\)|\\b(?:19\\d{2}|20\\d{2})\\b)[^\\n]{0,400}?",
+            "unit_points": 40,
+            "max_points": 320
+          },
+
+          "Artículos con DOI explícito": {
+            "pattern": "(?is)\\bdoi\\s*:\\s*10\\.[0-9]{4,9}/[^\\s\\)\\]]+",
+            "unit_points": 40,
+            "max_points": 80
+          },
+
+          "Libros / ISBN": {
+            "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,16000})?(?:\\n\\s*Libros\\b[\\s\\S]{0,12000})?(?:^|\\n)\\s*(?!.*\\b(?:Informe\\s+in[eé]dito|Tesis\\s+de\\s+)\\b)(?:null\\.?\\s*)?[^\\n]{10,1200}?\\bISBN\\s*:?\\s*[0-9\\-]{10,20}",
+            "unit_points": 20,
+            "max_points": 120
+          },
+
+          "Capítulos de libro / ISBN": {
+            "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,16000})?(?:\\bCap[ií]tulo\\s+de\\s+libro\\b|\\bCap[ií]tulos?\\b|\\bISBN\\s*:?\\s*[0-9\\-]{10,20})",
+            "unit_points": 30,
+            "max_points": 120
+          },
+
+          "Trabajos en eventos / actas / libro de resúmenes": {
+            "pattern": "(?is)(?:^|\\n)\\s*(?!.*\\bInforme\\s+in[eé]dito\\b)(?:null\\.?\\s*)?[^\\n]{0,800}?\\bEn\\s+(?:Actas|ACTAS|Libro\\s+de\\s+Actas|Libro\\s+de\\s+resúmen(?:es)?|Libro\\s+de\\s+Resumenes|Congreso|Jornadas|Simposio|Symposium|Meeting|Taller|Workshop|BIOCELL\\s+abstracts?|Biocell)\\b[^\\n]{0,800}?(?:19\\d{2}|20\\d{2})\\b",
+            "unit_points": 5,
+            "max_points": 120
+          },
+
+          "Informes inéditos / tesis (excluir de publicaciones)": {
+            "pattern": "(?is)(?:^|\\n)\\s*(?:Informe\\s+in[eé]dito|inform[eé]\\s+in[eé]dito|Tesis\\s+de\\s+grado\\s*:|Tesis\\s+de\\s+maestr[ií]a\\s*:|Tesis\\s+de\\s+doctorado\\s*:)",
+            "unit_points": 0,
+            "max_points": 0
+          }
         }
-      }
-    },
+      },
     "Formación de recursos humanos": {
       "max_points": 640,
       "items": {
