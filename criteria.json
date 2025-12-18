@@ -215,37 +215,43 @@
       "max_points": 650,
       "items": {
         "Gestión CyT: comité/consejo/CAI/comisiones (no docencia)": {
-          "pattern": "(?is)(?:\\n\\s*ANTECEDENTES\\s+EN\\s+CYT\\b[\\s\\S]{0,16000})?(?:\\bComit[eé]\\s+de\\s+Investigaci[oó]n\\b|\\bConsejo\\s+de\\s+Investigaci[oó]n\\b|\\bComisi[oó]n\\s+Asesora\\s+de\\s+Investigaciones\\b|\\bCAI\\b|\\bIntegrante\\s+de\\s+la\\s+Comisi[oó]n\\b|\\bComisi[oó]n\\s+de\\s+Carreras\\b|\\bConsejera?\\b[\\s\\S]{0,120}?\\bSecretar[ií]a\\s+de\\s+Investigaci[oó]n\\b)(?![\\s\\S]{0,120}?\\b(?:Profesora?|Profesor|C[áa]tedra|Dictado\\s+de\\s+clases|parciales|finales|Ad\\s+Honorem|Rentado|Titular|Adjunto|Asociado)\\b)",
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:Comisi[oó]n|Consejo|CAI|Comit[eé])[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 20,
           "max_points": 120
         },
-        "Evaluación de programas y proyectos (Rol: Evaluador/a)": {
-          "pattern": "(?is)\\bEvaluaci[oó]n\\s+de\\s+programas\\s+y\\s+proyectos\\b[\\s\\S]{0,220}?\\bRol\\s*:\\s*Evaluador/a\\b",
+
+        "Evaluación de programas y proyectos": {
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:Evaluaci[oó]n\\s+de\\s+(?:programas?|proyectos?))[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 20,
           "max_points": 120
         },
-        "Evaluación institucional externa / proyectos institucionales (Rol: Evaluador/a)": {
-          "pattern": "(?is)\\bProyectos\\s+institucionales\\s+o\\s+evaluaci[oó]n\\s+institucional\\s+externa\\b[\\s\\S]{0,220}?\\bRol\\s*:\\s*Evaluador/a\\b",
+
+        "Evaluación institucional externa / proyectos institucionales": {
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:Evaluaci[oó]n\\s+institucional|evaluaci[oó]n\\s+externa|proyecto\\s+institucional)[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 20,
           "max_points": 120
         },
+
         "Evaluación académica puntual (pósters/simposios/pasantías/plan de doctorado)": {
-          "pattern": "(?is)\\b(?:Jurado\\s+de\\s+P[oó]sters|Evaluaci[oó]n\\s+de\\s+POSTER|Evaluaci[oó]n\\s+de\\s+Pasant[ií]a|Evaluaci[oó]n\\s+de\\s+Plan\\s+de\\s+Doctorado)\\b[\\s\\S]{0,220}?\\bRol\\s*:\\s*Evaluador/a\\b",
-          "unit_points": 5,
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:p[oó]ster|simposio|pasant[ií]a|plan\\s+de\\s+doctorado)[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
+          "unit_points": 10,
           "max_points": 60
         },
+
         "Evaluación de trabajos en revistas (revisor/a)": {
-          "pattern": "(?is)\\bEvaluaci[oó]n\\s+de\\s+trabajos\\s+en\\s+revistas\\b",
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:Revisor|Reviewer|Evaluador\\s+de\\s+art[ií]culos|Revista)[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
+          "unit_points": 20,
+          "max_points": 120
+        },
+
+        "Jurado (tesinas/trabajos finales/tesis/premios)": {
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?Jurado[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 10,
           "max_points": 120
         },
-        "Jurado (tesinas/trabajos finales/tesis/premios) (Rol: Evaluador/a)": {
-          "pattern": "(?is)\\bJurado\\s+de\\s+(?:tesinas|trabajos\\s+finales|tesis|premios)\\b[\\s\\S]{0,220}?\\bRol\\s*:\\s*Evaluador/a\\b",
-          "unit_points": 10,
-          "max_points": 120
-        },
+
         "Acreditación / evaluación de carreras (CONEAU)": {
-          "pattern": "(?is)\\b(?:CONEAU|Evaluaci[oó]n\\s+y/o\\s+acreditaci[oó]n\\s+de\\s+carreras|Acreditaci[oó]n\\s+de\\s+Especializaci[oó]n)\\b",
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:CONEAU|acreditaci[oó]n\\s+de\\s+carreras)[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 40,
           "max_points": 200
         }
