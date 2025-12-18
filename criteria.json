@@ -82,7 +82,7 @@
           },
 
           "Libros / ISBN": {
-            "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,16000})?(?:\\n\\s*Libros\\b[\\s\\S]{0,12000})?(?:^|\\n)\\s*(?!.*\\b(?:Informe\\s+in[eé]dito|Tesis\\s+de\\s+)\\b)(?:null\\.?\\s*)?[^\\n]{10,1200}?\\bISBN\\s*:?\\s*[0-9\\-]{10,20}",
+            "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,20000})?(?:\\n\\s*(?:Libros\\b|LIBROS\\b|Libro\\b|Libros\\s+publicados\\b)\\s*[\\s\\S]{0,20000})?(?:^|\\n)\\s*(?!.*\\b(?:Informe\\s+in[eé]dito|Tesis\\s+de\\s+)\\b)(?:null\\.?\\s*)?[^\\n]{10,2000}?(?:\\bISBN(?:-1[03])?\\b\\s*:?\\s*[0-9\\-]{10,20}|\\b97[89][0-9\\-]{10,20}\\b)",
             "unit_points": 20,
             "max_points": 120
           },
