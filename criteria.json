@@ -175,32 +175,32 @@
       "max_points": 540,
       "items": {
         "Dirección de proyecto I+D (financiado o institucional)": {
-          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,16000})?\\bDirectora?\\b[\\s\\S]{0,260}?\\bProyecto\\s+de\\s+I\\+D\\b",
+          "pattern": "(?is)\\bProyecto\\s+de\\s+I\\+D\\b[\\s\\S]{0,600}?\\bRol\\s*:\\s*Directora?\\b[\\s\\S]{0,800}?(?:\\bT[ií]tulo\\s*:\\s*|\\bInstituci[oó]n\\s*:\\s*|\\bPer[ií]odo\\s*:\\s*|\\bDuraci[oó]n\\s*:\\s*|\\bFinanci(?:ado|ada)\\s+por\\s*:\\s*|\\bEjecutad[ao]\\s+en\\s*:\\s*)",
           "unit_points": 120,
           "max_points": 360
-        },
+    },
         "Co-dirección de proyecto I+D": {
-          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,16000})?\\bCo-?directora?\\b[\\s\\S]{0,260}?\\bProyecto\\s+de\\s+I\\+D\\b",
+          "pattern": "(?is)\\bProyecto\\s+de\\s+I\\+D\\b[\\s\\S]{0,600}?\\bRol\\s*:\\s*Co-?directora?\\b[\\s\\S]{0,800}?(?:\\bT[ií]tulo\\s*:\\s*|\\bInstituci[oó]n\\s*:\\s*|\\bPer[ií]odo\\s*:\\s*|\\bDuraci[oó]n\\s*:\\s*|\\bFinanci(?:ado|ada)\\s+por\\s*:\\s*|\\bEjecutad[ao]\\s+en\\s*:\\s*)",
           "unit_points": 80,
           "max_points": 240
-        },
+    },
         "Participación en proyecto I+D (Investigador/a / Personal técnico)": {
-          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,16000})?\\b(?:Investigadora?|Investigador/a|Personal\\s+t[eé]cnico\\s+de\\s+apoyo)\\b[\\s\\S]{0,260}?\\bProyecto\\s+de\\s+I\\+D\\b",
+          "pattern": "(?is)\\bProyecto\\s+de\\s+I\\+D\\b[\\s\\S]{0,600}?\\bRol\\s*:\\s*(?:Investigadora?|Investigador/a|Personal\\s+t[eé]cnico\\s+de\\s+apoyo)\\b[\\s\\S]{0,800}?(?:\\bT[ií]tulo\\s*:\\s*|\\bInstituci[oó]n\\s*:\\s*|\\bPer[ií]odo\\s*:\\s*|\\bDuraci[oó]n\\s*:\\s*|\\bFinanci(?:ado|ada)\\s+por\\s*:\\s*|\\bEjecutad[ao]\\s+en\\s*:\\s*)",
           "unit_points": 40,
           "max_points": 200
-        },
+    },
         "Beca (Iniciación/Posgrado/Doctorado/Especialización/Otro tipo)": {
-          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,16000})?\\bBeca\\s+de\\s+(?:Iniciaci[oó]n\\s+a\\s+la\\s+Investigaci[oó]n|Postgrado/Doctorado|Postgrado/Especializaci[oó]n|Otro\\s+tipo\\s+de\\s+beca\\s+de\\s+Investigaci[oó]n)\\b",
+          "pattern": "(?is)\\bBeca\\s+de\\s+(?:Iniciaci[oó]n\\s+a\\s+la\\s+Investigaci[oó]n|Postgrado/Doctorado|Postgrado/Especializaci[oó]n|Otro\\s+tipo\\s+de\\s+beca\\s+de\\s+Investigaci[oó]n)\\b[\\s\\S]{0,800}?(?:\\bInstituci[oó]n\\s*:\\s*|\\bPer[ií]odo\\s*:\\s*|\\bDuraci[oó]n\\s*:\\s*|\\bFinanci(?:ado|ada)\\s+por\\s*:\\s*)",
           "unit_points": 20,
           "max_points": 120
-        },
+    },
         "Estancia de I+D (MM/YYYY–MM/YYYY o YYYY–Actualidad)": {
-          "pattern": "(?is)(?:\\b\\d{2}/\\d{4}\\s*[-–]\\s*\\d{2}/\\d{4}\\b|\\b\\d{2}/\\d{4}\\s*[-–]\\s*Actualidad\\b|\\b\\d{4}\\s*[-–]\\s*Actualidad\\b|\\b\\d{4}\\s*[-–]\\s*\\d{4}\\b)[\\s\\S]{0,240}?\\bEstancia\\s+de\\s+I\\+D\\s+en\\s*:\\s*\\\"?[^\\n\\\"]{8,260}\\\"?",
+          "pattern": "(?is)\\bEstancia\\s+de\\s+I\\+D\\s+en\\s*:\\s*\\\"?[^\\n\\\"]{8,260}\\\"?[\\s\\S]{0,400}?(?:\\b\\d{2}/\\d{4}\\s*[-–]\\s*\\d{2}/\\d{4}\\b|\\b\\d{2}/\\d{4}\\s*[-–]\\s*Actualidad\\b|\\b\\d{4}\\s*[-–]\\s*Actualidad\\b|\\b\\d{4}\\s*[-–]\\s*\\d{4}\\b)",
           "unit_points": 30,
           "max_points": 120
-        },
+    },
         "Proyecto de Extensión con dirección (no confundir con Extensión simple)": {
-          "pattern": "(?is)(?:\\n\\s*Financiamiento\\s+CyT\\b[\\s\\S]{0,16000})?\\bDirectora?\\b[\\s\\S]{0,260}?\\bProyecto\\s+de\\s+Extensi[oó]n\\b",
+          "pattern": "(?is)\\bProyecto\\s+de\\s+Extensi[oó]n\\b[\\s\\S]{0,600}?\\bRol\\s*:\\s*Directora?\\b[\\s\\S]{0,800}?(?:\\bT[ií]tulo\\s*:\\s*|\\bInstituci[oó]n\\s*:\\s*|\\bPer[ií]odo\\s*:\\s*|\\bDuraci[oó]n\\s*:\\s*)",
           "unit_points": 40,
           "max_points": 120
         }
