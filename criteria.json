@@ -261,17 +261,19 @@
       "max_points": 470,
       "items": {
         "Eventos CyT (organizador/conferencista/asistente)": {
-          "pattern": "(?is)(?:\\n\\s*Participaci[oó]n\\s+en\\s+eventos\\s+CyT\\b[\\s\\S]{0,16000})?(?:\\bEvento\\s*:\\s*[^\\n]{3,240}|\\bCongreso\\b|\\bJornadas\\b|\\bSimposio\\b|\\bSymposium\\b|\\bMeeting\\b)[\\s\\S]{0,260}?\\bModo\\s+de\\s+participaci[oó]n\\s*:\\s*(?:Organizadora?\\s+general|Organizador|Conferencista|Asistencia\\s+y\\s+participaci[oó]n)\\b",
-          "unit_points": 5,
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:Evento\\s*:|Congreso|Jornadas|Simposio|Symposium|Meeting|Workshop|Taller|Conferencia|Seminario|Encuentro)[\\s\\S]*?(?:Modo\\s+de\\s+participaci[oó]n\\s*:|Organizad[oa]\\s+por\\s*:|Organizador(?:a)?\\b|Organizador\\s+general\\b|Conferencista\\b|Ponente\\b|Expositor\\b|Asistente\\b|Participante\\b)?[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
+          "unit_points": 10,
           "max_points": 120
         },
+
         "Actividades profesionales relevantes (no docencia)": {
-          "pattern": "(?is)(?:\\n\\s*Actividades\\s+profesionales\\b[\\s\\S]{0,16000})?(?:\\bAuditora?\\s+externa\\b|\\bAsesor(?:a|)\\b|\\bAsesor\\s+t[eé]cnico\\b|\\bCapacitador(?:a|)\\b|\\bProfesional\\s+integrante\\b|\\bEvaluador\\s+de\\s+IMPACTO\\s+AMBIENTAL\\b)(?![\\s\\S]{0,120}?\\b(?:Profesora?|Profesor|C[áa]tedra|Dictado\\s+de\\s+clases|parciales|finales|Ad\\s+Honorem|Rentado|Titular|Adjunto|Asociado)\\b)",
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:Asesor(?:a)?\\b|Consultor(?:a)?\\b|Auditor(?:a)?\\b|Capacitador(?:a)?\\b|Normalizaci[oó]n\\s+IRAM|IRAM\\b|Perit(?:o|aje)\\b|Evaluaci[oó]n\\s+t[eé]cnica|Asistencia\\s+t[eé]cnica|Responsable\\s+t[eé]cnico|Direcci[oó]n\\s+t[eé]cnica)[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 10,
           "max_points": 80
         },
+
         "Premios / menciones": {
-          "pattern": "(?is)\\bPremios\\b[\\s\\S]{0,2000}?(?:\\bMenci[oó]n\\s+Especial\\b|\\bPremio\\b)",
+          "pattern": "(?ims)^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*(?:Actualidad|\\d{4}|\\d{2}/\\d{4})?.*?(?:Premio\\b|Menci[oó]n\\b|Distinci[oó]n\\b|Reconocimiento\\b|Galard[oó]n\\b)[\\s\\S]*?(?=^\\s*(?:\\d{4}|\\d{2}/\\d{4})\\s*(?:-|–)?\\s*|\\Z)",
           "unit_points": 10,
           "max_points": 40
         }
