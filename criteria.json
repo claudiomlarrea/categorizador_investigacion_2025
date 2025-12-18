@@ -110,62 +110,62 @@
       "max_points": 640,
       "items": {
         "Dirección de beca (CIN/posgrado/doctorado/posdoc)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bDirecci[oó]n\\s+de\\s+beca\\b",
+          "pattern": "(?is)\\bDirecci[oó]n\\s+de\\s+beca\\b[\\s\\S]{0,400}?\\bBecari[oa]\\s*:\\s*",
           "unit_points": 60,
           "max_points": 240
-        },
+      },
         "Co-dirección de beca": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bCo-?direcci[oó]n\\s+de\\s+beca\\b",
+          "pattern": "(?is)\\bCo-?direcci[oó]n\\s+de\\s+beca\\b[\\s\\S]{0,400}?\\bBecari[oa]\\s*:\\s*",
           "unit_points": 40,
           "max_points": 160
-        },
+      },
         "Dirección de tesis de Doctorado": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bDirecci[oó]n\\s+de\\s+Tesis\\s+de\\s+Doctorado\\b",
+          "pattern": "(?is)\\bDirecci[oó]n\\s+de\\s+Tesis\\s+de\\s+Doctorado\\b[\\s\\S]{0,500}?\\bTesista\\s*:\\s*",
           "unit_points": 120,
           "max_points": 360
-        },
+      },
         "Co-dirección de tesis de Doctorado": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bCo-?direcci[oó]n\\s+de\\s+Tesis\\s+de\\s+Doctorado\\b",
+          "pattern": "(?is)\\bCo-?direcci[oó]n\\s+de\\s+Tesis\\s+de\\s+Doctorado\\b[\\s\\S]{0,500}?\\bTesista\\s*:\\s*",
           "unit_points": 80,
           "max_points": 240
-        },
+      },
         "Dirección de tesina/trabajo final de grado (ancla Tesista)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bDirecci[oó]n\\s+de\\s+(?:Tesina|Trabajo\\s+final\\s+de\\s+Grado|Trabajo\\s+final\\b|trabajo\\s+final\\b)\\b[\\s\\S]{0,260}?\\bTesista\\s*:\\s*",
+          "pattern": "(?is)\\bDirecci[oó]n\\s+de\\s+(?:Tesina|Trabajo\\s+final\\s+de\\s+Grado|Trabajo\\s+final)\\b[\\s\\S]{0,500}?\\bTesista\\s*:\\s*",
           "unit_points": 10,
           "max_points": 120
-        },
+      },
         "Dirección de trabajo final de Especialización (ancla Tesista)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bDirecci[oó]n\\s+de\\s+Trabajo\\s+final\\s+de\\s+Especializaci[oó]n\\b[\\s\\S]{0,260}?\\bTesista\\s*:\\s*",
+          "pattern": "(?is)\\bDirecci[oó]n\\s+de\\s+Trabajo\\s+final\\s+de\\s+Especializaci[oó]n\\b[\\s\\S]{0,500}?\\bTesista\\s*:\\s*",
           "unit_points": 20,
           "max_points": 120
-        },
+      },
         "Dirección de maestría (obra/proyecto/tesis)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bDirecci[oó]n\\s+de\\s+Trabajo\\s+final,\\s*proyecto,\\s*obra\\s+o\\s+tesis\\s+de\\s+Maestr[ií]a\\b[\\s\\S]{0,260}?\\bTesista\\s*:\\s*",
+          "pattern": "(?is)\\bDirecci[oó]n\\s+de\\s+Trabajo\\s+final,\\s*proyecto,\\s*obra\\s+o\\s+tesis\\s+de\\s+Maestr[ií]a\\b[\\s\\S]{0,500}?\\bTesista\\s*:\\s*",
           "unit_points": 40,
           "max_points": 160
-        },
+      },
         "Co-dirección de maestría (obra/proyecto/tesis)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bCo-?direcci[oó]n\\s+de\\s+Trabajo\\s+final,\\s*proyecto,\\s*obra\\s+o\\s+tesis\\s+de\\s+Maestr[ií]a\\b[\\s\\S]{0,260}?\\bTesista\\s*:\\s*",
+          "pattern": "(?is)\\bCo-?direcci[oó]n\\s+de\\s+Trabajo\\s+final,\\s*proyecto,\\s*obra\\s+o\\s+tesis\\s+de\\s+Maestr[ií]a\\b[\\s\\S]{0,500}?\\bTesista\\s*:\\s*",
           "unit_points": 25,
           "max_points": 120
-        },
+      },
         "Dirección de Investigador: Otra (ancla Investigador/a)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bDirecci[oó]n\\s+de\\s+Investigador\\s*:\\s*Otra\\b[\\s\\S]{0,260}?\\bInvestigador/a\\s*:\\s*",
+          "pattern": "(?is)\\bDirecci[oó]n\\s+de\\s+Investigador\\s*:\\s*Otra\\b[\\s\\S]{0,500}?\\bInvestigador/a\\s*:\\s*",
           "unit_points": 15,
           "max_points": 60
-        },
+      },
         "Co-dirección de Investigador: Otra (ancla Investigador/a)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bCo-?direcci[oó]n\\s+de\\s+Investigador\\s*:\\s*Otra\\b[\\s\\S]{0,260}?\\bInvestigador/a\\s*:\\s*",
+          "pattern": "(?is)\\bCo-?direcci[oó]n\\s+de\\s+Investigador\\s*:\\s*Otra\\b[\\s\\S]{0,500}?\\bInvestigador/a\\s*:\\s*",
           "unit_points": 10,
           "max_points": 60
-        },
+      },
         "Co-dirección de Personal de apoyo a la I+D (ancla JEFE)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bCo-?direcci[oó]n\\s+de\\s+Personal\\s+de\\s+apoyo\\s+a\\s+la\\s+I\\+D\\b[\\s\\S]{0,260}?\\bJEFE\\s*:\\s*",
+          "pattern": "(?is)\\bCo-?direcci[oó]n\\s+de\\s+Personal\\s+de\\s+apoyo\\s+a\\s+la\\s+I\\+D\\b[\\s\\S]{0,500}?\\bJEFE\\s*:\\s*",
           "unit_points": 10,
           "max_points": 40
-        },
+      },
         "Dirección de pasantía (formación / I+D) (ancla Pasante)": {
-          "pattern": "(?is)(?:\\n\\s*Formaci[oó]n\\s+de\\s+recursos\\s+humanos\\b[\\s\\S]{0,12000})?\\bDirecci[oó]n\\s+de\\s+(?:Formaci[oó]n\\s+acad[eé]mica\\s+de\\s+Pasante|Tareas\\s+de\\s+investigaci[oó]n\\s+y\\s+desarrollo\\s+de\\s+Pasante|Formaci[oó]n\\s+acad[eé]mica\\s+incluyendo\\s+la\\s+realizaci[oó]n\\s+de\\s+tareas\\s+de\\s+investigaci[oó]n\\s+y\\s+desarrollo\\s+de\\s+Pasante)\\b[\\s\\S]{0,220}?\\bPasante\\s*:\\s*",
+          "pattern": "(?is)\\bDirecci[oó]n\\s+de\\s+(?:Formaci[oó]n\\s+acad[eé]mica\\s+de\\s+Pasante|Tareas\\s+de\\s+investigaci[oó]n\\s+y\\s+desarrollo\\s+de\\s+Pasante|Formaci[oó]n\\s+acad[eé]mica\\s+incluyendo\\s+la\\s+realizaci[oó]n\\s+de\\s+tareas\\s+de\\s+investigaci[oó]n\\s+y\\s+desarrollo\\s+de\\s+Pasante)\\b[\\s\\S]{0,500}?\\bPasante\\s*:\\s*",
           "unit_points": 5,
           "max_points": 60
         }
