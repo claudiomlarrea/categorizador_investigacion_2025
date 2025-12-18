@@ -76,7 +76,7 @@
           },
 
           "Artículos con DOI explícito": {
-            "pattern": "(?is)\\bdoi\\s*:\\s*10\\.[0-9]{4,9}/[^\\s\\)\\]]+",
+            "pattern": "(?is)(?:\\bdoi\\s*:\\s*|https?://(?:dx\\.)?doi\\.org/)(10\\.[0-9]{4,9}/[^\\s\\)\\]\\}\\\"\\'<>]+)",
             "unit_points": 40,
             "max_points": 80
           },
@@ -87,14 +87,14 @@
             "max_points": 120
           },
 
-          "Capítulos de libro / ISBN": {
-            "pattern": "(?is)(?:\\n\\s*PUBLICACIONES\\b[\\s\\S]{0,16000})?(?:\\bCap[ií]tulo\\s+de\\s+libro\\b|\\bCap[ií]tulos?\\b|\\bISBN\\s*:?\\s*[0-9\\-]{10,20})",
+          "Capítulos de libro": {
+            "pattern": "(?is)(?:^|\\n)\\s*(?:null\\.?\\s*)?[^\\n]{0,600}?\\bCap[ií]tulo\\b[^\\n]{0,1200}?(?:\\bISBN\\b|\\b(19\\d{2}|20\\d{2})\\b)",
             "unit_points": 30,
             "max_points": 120
           },
 
           "Trabajos en eventos / actas / libro de resúmenes": {
-            "pattern": "(?is)(?:^|\\n)\\s*(?!.*\\bInforme\\s+in[eé]dito\\b)(?:null\\.?\\s*)?[^\\n]{0,800}?\\bEn\\s+(?:Actas|ACTAS|Libro\\s+de\\s+Actas|Libro\\s+de\\s+resúmen(?:es)?|Libro\\s+de\\s+Resumenes|Congreso|Jornadas|Simposio|Symposium|Meeting|Taller|Workshop|BIOCELL\\s+abstracts?|Biocell)\\b[^\\n]{0,800}?(?:19\\d{2}|20\\d{2})\\b",
+            "pattern": "(?is)(?:^|\\n)\\s*(?!.*\\bInforme\\s+in[eé]dito\\b)(?:null\\.?\\s*)?[^\\n]{0,1200}?\\bEn\\s+(?:Actas|ACTAS|Libro\\s+de\\s+Actas|Libro\\s+de\\s+resúmen(?:es)?|Libro\\s+de\\s+Resumenes|Congreso|Jornadas|Simposio|Symposium|Meeting|Taller|Workshop|BIOCELL\\s+abstracts?|Biocell)\\b[^\\n]{0,1200}?(?:\\((?:19\\d{2}|20\\d{2})\\)|\\b(?:19\\d{2}|20\\d{2})\\b)",
             "unit_points": 5,
             "max_points": 120
           },
