@@ -1,3 +1,10 @@
+# app.py — Valorador de CV Docente/Investigador (UCCuyo)
+# Reglas clave:
+# - Para títulos estructurales (Doctorado/Maestría/Especialización/Grado): detecta 1 o 0 (anti-duplicación).
+# - No puntúa posgrados "en curso" (Actualidad/En curso/Cursando).
+# - Tolera "null" intermedio típico de CVar.
+# - Resto de ítems: conteo por regex + tope por ítem + tope por sección.
+
 import streamlit as st
 import re, json, io
 import pandas as pd
@@ -12,15 +19,14 @@ except Exception:
     HAVE_PDF = False
 
 st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wide")
-st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
-st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
-
+st.title("Universidad Católica de Cuyo — Valorador de CV Docente/Investigador")
+st.caption("Exporta Excel y Word + categoría automática según puntaje total (criteria.json).")
 
 # =========================
 # Cargar criteria.json
 # =========================
 @st.cache_data(show_spinner=False)
-def load_json(path):
+def load_json(path: str):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -29,7 +35,7 @@ def load_json(path):
         st.info("Tip: revisá comillas, comas finales y backslashes en regex (en JSON deben ser \\\\).")
         st.stop()
     except FileNotFoundError:
-        st.error("No se encontró criteria.json en el repositorio (debe estar en la misma carpeta que app.py).")
+        st.error("No se encontró criteria.json en el repositorio (debe estar junto a app.py).")
         st.stop()
     except Exception as e:
         st.error(f"Error leyendo criteria.json: {e}")
@@ -37,11 +43,10 @@ def load_json(path):
 
 criteria = load_json("criteria.json")
 
-
 # =========================
 # Extracción de texto
 # =========================
-def extract_text_docx(file):
+def extract_text_docx(file) -> str:
     doc = DocxDocument(file)
     text = "\n".join(p.text for p in doc.paragraphs)
     for t in doc.tables:
@@ -49,7 +54,7 @@ def extract_text_docx(file):
             text += "\n" + " | ".join(c.text for c in row.cells)
     return text
 
-def extract_text_pdf(file):
+def extract_text_pdf(file) -> str:
     if not HAVE_PDF:
         raise RuntimeError("Falta pdfplumber. Agregalo en requirements.txt: pdfplumber")
     chunks = []
@@ -58,32 +63,30 @@ def extract_text_pdf(file):
             chunks.append(p.extract_text() or "")
     return "\n".join(chunks)
 
-
 # =========================
 # Normalización (CLAVE)
 # =========================
 def normalize_text(text: str) -> str:
     if not text:
         return ""
-    # unificar guiones típicos de PDF
+    # Unificar guiones típicos
     text = text.replace("\u2013", "-").replace("\u2014", "-").replace("\u2212", "-")
-    # quitar guionado por salto de línea: "inves-\ntigación" -> "investigación"
+    # Quitar guionado por salto de línea: "inves-\ntigación" -> "investigación"
     text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
-    # normalizar saltos de línea
+    # Normalizar saltos de línea
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    # compactar espacios
+    # Espacios
     text = re.sub(r"[ \t]+", " ", text)
-    # compactar líneas vacías
+    # Compactar líneas vacías
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text
 
-
 # =========================
-# Flags regex desde criteria.json
+# Regex flags desde criteria.json
 # =========================
 def flags_from_meta(criteria_dict) -> int:
     meta = criteria_dict.get("meta", {})
-    f = meta.get("regex_flags_default", "is")  # default i + s
+    f = meta.get("regex_flags_default", "is")  # default: i + s
     flags = 0
     if "i" in f:
         flags |= re.IGNORECASE
@@ -95,13 +98,12 @@ def flags_from_meta(criteria_dict) -> int:
 
 DEFAULT_FLAGS = flags_from_meta(criteria)
 
-
 @st.cache_data(show_spinner=False)
 def compile_pattern(pattern: str, flags: int):
     return re.compile(pattern, flags)
 
-
 def match_count(pattern: str, text: str) -> int:
+    """Conteo genérico: cuenta matches del patrón (para ítems no estructurales)."""
     if not pattern:
         return 0
     try:
@@ -111,7 +113,6 @@ def match_count(pattern: str, text: str) -> int:
         st.warning(f"Regex inválida: {e} | patrón: {pattern[:160]}...")
         return 0
 
-
 def clip(v, cap):
     if cap is None:
         return v
@@ -119,61 +120,69 @@ def clip(v, cap):
         cap_val = float(cap)
     except Exception:
         return v
-    return min(v, cap_val)
-
+    return min(float(v), cap_val)
 
 # =========================
-# Detector robusto: TITULACIÓN FINALIZADA por bloque
-# (evita que "Actualidad" se cuele por ventana chica)
+# Reglas de finalización (NO EN CURSO)
 # =========================
-INPROGRESS_RX = re.compile(r"(?is)\b(Actualidad|En\s+curso|Cursando|No\s+finalizad[oa]|Incompleto|Pendiente)\b")
-FINISH_RX = re.compile(
-    r"(?is)\b(Situaci[oó]n\s+del\s+nivel\s*:\s*Completo|A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:\d{2}/)?(?:19\d{2}|20\d{2}))\b"
+INPROGRESS_RX = re.compile(
+    r"(?i)\b(Actualidad|En\s+curso|Cursando|Doctorand[oa]|Maestrand[oa]|"
+    r"Especializand[oa]|No\s+finalizad[oa]|Sin\s+finalizar|Incompleto)\b"
 )
 
-def count_completed_by_blocks(title_anchor_regex: str, text: str, max_block_chars: int = 1400) -> int:
+# Evidencia fuerte de finalización:
+# - "Año de finalización/obtención/graduación: ..."
+# - o "Situación del nivel: Completo"
+# - o rango "MM/YYYY - MM/YYYY" (sin 'Actualidad')
+# - o año suelto si está dentro del bloque y NO está "Actualidad" (como fallback)
+FINISH_RX = re.compile(
+    r"(?is)(Situaci[oó]n\s+del\s+nivel\s*:\s*Completo|"
+    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:\d{2}/)?(?:19\d{2}|20\d{2})|"
+    r"\b\d{2}/\d{4}\s*[-–]\s*\d{2}/\d{4}\b|"
+    r"\b(19\d{2}|20\d{2})\b)"
+)
+
+def has_completed_title(title_anchor_regex: str, text: str, max_block_chars: int = 1800) -> int:
     """
-    Encuentra ocurrencias del ancla (p.ej. 'Doctorado', 'Maestría', 'Licenciado en', 'Técnic[ao] Universitari[ao]')
-    y evalúa el bloque cercano:
-    - NO cuenta si aparece "Actualidad/En curso/Cursando..."
-    - SOLO cuenta si aparece evidencia de finalización (Año de finalización / Situación Completo, etc.)
+    Devuelve 1 si existe AL MENOS UN título finalizado válido.
+    Nunca devuelve más de 1.
+    Tolera 'null' intermedio típico de CVar.
+    Excluye 'Actualidad/En curso/Cursando' (no puntúa).
     """
     rx_anchor = re.compile(title_anchor_regex, re.IGNORECASE)
-    count = 0
-
     for m in rx_anchor.finditer(text):
         start = m.start()
         end = min(len(text), m.start() + max_block_chars)
         block = text[start:end]
 
+        # limpiar ruido típico de CVar
+        block = re.sub(r"\bnull\b", " ", block, flags=re.IGNORECASE)
+
+        # excluir en curso
         if INPROGRESS_RX.search(block):
             continue
-        if not FINISH_RX.search(block):
-            continue
 
-        count += 1
+        # exigir evidencia de finalización
+        if FINISH_RX.search(block):
+            return 1
 
-    return count
-
+    return 0
 
 # =========================
-# Categorización según puntaje
+# Categorización por puntaje (criteria.json)
 # =========================
-def obtener_categoria(total, criteria_dict):
+def obtener_categoria(total: float, criteria_dict):
     categorias = criteria_dict.get("categorias", {})
     mejor_clave = "Sin categoría"
     mejor_desc = ""
     mejor_min = None
-
     for clave, info in categorias.items():
-        min_pts = info.get("min_points", 0)
+        min_pts = float(info.get("min_points", 0) or 0)
         if total >= min_pts and (mejor_min is None or min_pts > mejor_min):
             mejor_min = min_pts
             mejor_clave = clave
             mejor_desc = info.get("descripcion", "")
-
     return mejor_clave, mejor_desc
-
 
 # =========================
 # UI
@@ -190,8 +199,9 @@ if uploaded:
         st.stop()
 
     st.success(f"Archivo cargado: {uploaded.name}")
+
     with st.expander("Ver texto extraído (debug)"):
-        st.text_area("Texto", raw_text, height=240)
+        st.text_area("Texto", raw_text, height=260)
 
     results = {}
     total = 0.0
@@ -210,24 +220,42 @@ if uploaded:
             unit = float(icfg.get("unit_points", 0) or 0)
             item_cap = float(icfg.get("max_points", 0) or 0)
 
-            # --- OVERRIDE robusto SOLO para formación finalizada ---
+            # --- REGLAS ESPECIALES: títulos estructurales (1 o 0) ---
             if section == "Formación académica y complementaria":
                 if item == "Doctorado (finalizado)":
-                    c = count_completed_by_blocks(r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b", raw_text)
+                    c = has_completed_title(
+                        r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b",
+                        raw_text
+                    )
                 elif item == "Maestría (finalizada)":
-                    c = count_completed_by_blocks(r"\b(Maestr[ií]a|Mag[ií]ster)\b", raw_text)
+                    c = has_completed_title(
+                        r"\b(Maestr[ií]a|Mag[ií]ster)\b",
+                        raw_text
+                    )
                 elif item == "Especialización (finalizada)":
-                    c = count_completed_by_blocks(r"\b(Especializaci[oó]n|Especialista)\b", raw_text)
-                elif item == "Profesorado/Docencia universitaria (finalizado)":
-                    c = count_completed_by_blocks(r"\b(Profesorado|Docente\s+Universitario|Profesor\s+Universitari[oa]|Profesor\s+en)\b", raw_text)
+                    c = has_completed_title(
+                        r"\b(Especializaci[oó]n|Especialista)\b",
+                        raw_text
+                    )
                 elif item == "Título de grado (finalizado)":
-                    # Incluye: Licenciado en..., Licenciatura en..., y títulos técnicos universitarios
-                    c1 = count_completed_by_blocks(r"\b(Licenciad[oa]\s+en|Licenciatura\s+en)\b", raw_text)
-                    c2 = count_completed_by_blocks(r"\b(T[eé]cnic[ao]\s+Universitari[ao]|Tecnicatura)\b", raw_text)
-                    # Mantiene también profesiones típicas si están con año de finalización
-                    c3 = count_completed_by_blocks(r"\b(Abogad[oa]|M[eé]dic[oa]|Veterinari[oa]|Bioqu[ií]mic[oa]|Contador[oa]?|Ingenier[oa]|Arquitect[oa]|Bromatolog[íi]a|Bromat[oó]log[oa])\b", raw_text)
-                    c = c1 + c2 + c3
+                    # Incluye LICENCIADO/A EN... y TÉCNICA/O UNIVERSITARIO/A ...
+                    c = has_completed_title(
+                        r"\b("
+                        r"Licenciad[oa]\s+en|Licenciatura\s+en|"
+                        r"T[eé]cnic[ao]\s+Universitari[ao]|Tecnicatura|"
+                        r"Abogad[oa]|M[eé]dic[oa]|Bioqu[ií]mic[oa]|"
+                        r"Ingenier[oa]|Contador[oa]?|Arquitect[oa]|"
+                        r"Veterinari[oa]|Farmac[eé]utic[oa]"
+                        r")\b",
+                        raw_text
+                    )
+                elif item == "Profesorado/Docencia universitaria (finalizado)":
+                    c = has_completed_title(
+                        r"\b(Docente\s+Universitario|Profesorado|Profesor\s+Universitari[oa]|Profesor\s+en)\b",
+                        raw_text
+                    )
                 else:
+                    # el resto (cursos, idiomas, etc.) por conteo normal
                     c = match_count(pattern, raw_text)
             else:
                 c = match_count(pattern, raw_text)
@@ -241,7 +269,6 @@ if uploaded:
                 "Puntaje (tope ítem)": float(pts),
                 "Tope ítem": float(item_cap)
             })
-
             subtotal_raw += float(pts)
 
         df = pd.DataFrame(rows)
@@ -251,8 +278,8 @@ if uploaded:
         st.dataframe(df, use_container_width=True)
         st.info(f"Subtotal {section}: {subtotal:.1f} / máx {section_cap:.0f}")
 
-        results[section] = {"df": df, "subtotal": subtotal}
-        total += subtotal
+        results[section] = {"df": df, "subtotal": float(subtotal)}
+        total += float(subtotal)
 
     # =========================
     # Categoría
