@@ -134,13 +134,14 @@ def extract_formacion_academica_block(full_text: str) -> str:
 # ==========================================================
 # 2) Parseo de entradas y reglas "finalizado vs en curso"
 # ==========================================================
+# Mejorado: incluye "Hasta la actualidad" y guiones -, – y —
 RE_IN_PROGRESS = re.compile(
-    r"\b(Actualidad|En\s+curso|Cursando|En\s+desarrollo|Vigente|Actualmente)\b",
+    r"\b(Actualidad|En\s+curso|Cursando|Actualmente|Vigente|En\s+desarrollo|Hasta\s+la\s+actualidad|A\s+la\s+fecha)\b",
     re.IGNORECASE
 )
 
 RE_ENDS_WITH_ACTUALIDAD = re.compile(
-    r"(\d{2}/\d{4}|\d{4})\s*-\s*Actualidad\b",
+    r"(\d{2}/\d{4}|\d{4})\s*([\-–—])\s*Actualidad\b",
     re.IGNORECASE
 )
 
@@ -154,7 +155,6 @@ RE_SITUACION_COMPLETO = re.compile(
     re.IGNORECASE
 )
 
-# “Título”/denominación en CVar: suele ir primera línea del bloque
 def split_entries(block: str) -> list[str]:
     if not block:
         return []
@@ -169,12 +169,19 @@ def split_entries(block: str) -> list[str]:
     return entries
 
 def entry_is_completed(entry: str) -> bool:
-    # Si hay cualquier indicador claro de “en curso”, NO puntúa
-    if RE_IN_PROGRESS.search(entry) or RE_ENDS_WITH_ACTUALIDAD.search(entry):
-        return False
-    # Para puntuar: debe tener año/mes-año de finalización u “Situación: Completo”
+    """
+    Regla robusta:
+    1) Si hay evidencia explícita de finalización => puntúa SIEMPRE
+       (aunque exista "Actualidad" en otro renglón).
+    2) Si NO hay evidencia de finalización y aparece "Actualidad/en curso" => NO puntúa
+    3) Si no hay evidencia explícita => NO puntúa (criterio conservador)
+    """
     if RE_FINISH_YEAR.search(entry) or RE_SITUACION_COMPLETO.search(entry):
         return True
+
+    if RE_IN_PROGRESS.search(entry) or RE_ENDS_WITH_ACTUALIDAD.search(entry):
+        return False
+
     return False
 
 def get_finish_token(entry: str) -> str:
@@ -195,7 +202,7 @@ def get_first_line_title(entry: str) -> str:
     return (lines[0] if lines else "").strip()
 
 def norm_key(s: str) -> str:
-    s = s.lower().strip()
+    s = (s or "").lower().strip()
     s = re.sub(r"\s+", " ", s)
     s = re.sub(r"[\"'`´]", "", s)
     return s
@@ -215,19 +222,18 @@ def classify_entry(entry: str) -> str:
     if re.search(r"\bProfesorado\b|\bProfesor\s+en\b", entry, re.IGNORECASE):
         return "profesorado"
 
-    # Grado: regla práctica (NO posgrado) + tiene “Año de finalización” + no “Actualidad”
-    # Esto captura: Contadora Pública, Abogado, Bioquímico, Ingeniero, Médico, Licenciado/a, etc.
-    if RE_FINISH_YEAR.search(entry) and not (RE_IN_PROGRESS.search(entry) or RE_ENDS_WITH_ACTUALIDAD.search(entry)):
+    # Grado (conservador): solo si trae evidencia explícita de finalización
+    if RE_FINISH_YEAR.search(entry) or RE_SITUACION_COMPLETO.search(entry):
         return "grado"
 
     return "otro"
-
 
 def counts_from_formacion(block: str) -> dict:
     """
     Devuelve conteos robustos SOLO de formación académica.
     - Posgrados puntúan SOLO si entry_is_completed(entry)
-    - Grado puntúa si tiene año de finalización y no en curso
+    - Grado puntúa SOLO si entry_is_completed(entry)
+    - Profesorado puntúa SOLO si entry_is_completed(entry)
     - Dedup por (tipo, titulo_normalizado, fin_token)
     """
     entries = split_entries(block)
@@ -255,25 +261,13 @@ def counts_from_formacion(block: str) -> dict:
             continue
 
         # Reglas de completitud
-        if tipo in ("doctorado", "maestria", "especializacion"):
+        if tipo in ("doctorado", "maestria", "especializacion", "grado", "profesorado"):
             if not entry_is_completed(e):
                 continue
 
-        if tipo == "grado":
-            # grado: exige año de finalización (ya lo exige classify_entry)
-            if not entry_is_completed(e) and not RE_FINISH_YEAR.search(e):
-                continue
-
-        # profesorado: si tiene año de finalización o “Completo”, puntúa.
-        if tipo == "profesorado":
-            if not (RE_FINISH_YEAR.search(e) or RE_SITUACION_COMPLETO.search(e)):
-                continue
-            if RE_IN_PROGRESS.search(e) or RE_ENDS_WITH_ACTUALIDAD.search(e):
-                continue
-
-        # posdoc: puede ser en curso o finalizado (según tu criterio actual)
-        # lo dejamos como estaba: puntúa si aparece (sin exigir finalización)
-        # Si querés exigir finalización también, avisame y lo ajusto.
+        # posdoc: por defecto lo contamos si aparece (si querés exigir finalización, decímelo)
+        # Para evitar que puntúe posdoc en curso, podés descomentar esta línea:
+        # if tipo == "posdoc" and not entry_is_completed(e): continue
 
         seen.add(key)
         counts[tipo] += 1
