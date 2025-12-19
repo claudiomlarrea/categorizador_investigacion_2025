@@ -135,6 +135,9 @@ def extract_formacion_academica_block(full_text: str) -> str:
 
 # ==========================================================
 # 2) Parseo robusto por "inicio de título" + finalización
+#    (CORRECCIÓN: no puntuar posgrados/grados sin evidencia de finalización)
+#    (CORRECCIÓN: posdoc solo si empieza con Posdoctorado/Postdoctorado)
+#    (CORRECCIÓN: deduplicación no colapsa 2 doctorados distintos)
 # ==========================================================
 RE_IN_PROGRESS = re.compile(
     r"\b(Actualidad|En\s+curso|Cursando|Actualmente|Vigente|En\s+desarrollo|Hasta\s+la\s+actualidad|A\s+la\s+fecha)\b",
@@ -162,8 +165,11 @@ RE_RANGE = re.compile(
     re.IGNORECASE
 )
 
-# Palabras que generan falso positivo (beca/becario/dirección, etc.)
-RE_BECARIO_CONTEXT = re.compile(r"\b(becari[oa]s?|beca|direcci[oó]n|co[- ]?direcci[oó]n|tesista|investigador/a|investigador)\b", re.IGNORECASE)
+# Contexto RRHH/beca/etc. (para excluir falsos positivos en posdoc)
+RE_BECARIO_CONTEXT = re.compile(
+    r"\b(becari[oa]s?|beca|direcci[oó]n|co[- ]?direcci[oó]n|tesista|investigador/a|investigador)\b",
+    re.IGNORECASE
+)
 
 # Detecta líneas que suelen iniciar una "entrada" de título
 RE_ENTRY_START = re.compile(
@@ -243,6 +249,17 @@ def get_first_line_title(entry: str) -> str:
         return l
     return (lines[0] if lines else "").strip()
 
+def get_institution_hint(entry: str) -> str:
+    """
+    Devuelve una línea representativa de institución para robustecer deduplicación:
+    UNIVERSIDAD / FACULTAD / INSTITUTO / SEDE
+    """
+    lines = [l.strip() for l in entry.split("\n") if l.strip()]
+    for l in lines[:10]:
+        if re.search(r"\b(UNIVERSIDAD|FACULTAD|INSTITUTO|SEDE)\b", l, re.IGNORECASE):
+            return l
+    return ""
+
 def norm_key(s: str) -> str:
     s = (s or "").lower().strip()
     s = re.sub(r"\s+", " ", s)
@@ -262,7 +279,6 @@ def classify_entry(entry: str) -> str:
         return "otro"
 
     # Posdoc: SOLO si el PRIMER renglón inicia con Posdoctorado/Postdoctorado
-    # (CORRECCIÓN: no usar "postdoctoral" como criterio de descarte, porque puede aparecer en títulos reales)
     first = get_first_line_title(entry)
     if re.match(r"^(Posdoctorado|Postdoctorado)\b", first, flags=re.IGNORECASE):
         # excluir si parece RRHH/beca
@@ -293,6 +309,11 @@ def classify_entry(entry: str) -> str:
     return "otro"
 
 def counts_from_formacion(block: str) -> dict:
+    """
+    Cuenta títulos SOLO FINALIZADOS.
+    - Posdoc solo si empieza con Posdoctorado/Postdoctorado y está finalizado (y no es RRHH/beca).
+    - Deduplicación robusta: incluye pista de institución para NO colapsar 2 doctorados distintos.
+    """
     entries = split_entries(block)
     seen = set()
 
@@ -310,30 +331,22 @@ def counts_from_formacion(block: str) -> dict:
         if tipo not in counts:
             continue
 
-        titulo = get_first_line_title(e)
-        fin = get_finish_token(e)
-        key = (tipo, norm_key(titulo), norm_key(fin))
-
-        if key in seen:
+        # ✅ SOLO FINALIZADOS (incluye posdoc)
+        if not entry_is_completed(e):
             continue
 
-        # ✅ SOLO TITULOS FINALIZADOS (incluye grado/posgrado/profesorado)
-        if tipo in ("doctorado", "maestria", "especializacion", "grado", "profesorado"):
-            if not entry_is_completed(e):
-                continue
+        # ✅ POSDOC: excluir contexto RRHH/beca/etc.
+        if tipo == "posdoc" and RE_BECARIO_CONTEXT.search(e):
+            continue
 
-        # ✅ POSDOC: solo con evidencia fuerte + no contexto RRHH
-        if tipo == "posdoc":
-            if RE_BECARIO_CONTEXT.search(e):
-                continue
-            tiene_evidencia_fuerte = (
-                RE_FINISH_YEAR.search(e)
-                or RE_SITUACION_COMPLETO.search(e)
-                or RE_RANGE.search(e)
-                or re.search(r"\".{3,}?\"", e)
-            )
-            if not tiene_evidencia_fuerte:
-                continue
+        titulo = get_first_line_title(e)
+        fin = get_finish_token(e)
+        inst = get_institution_hint(e)
+
+        # ✅ Dedup robusto: tipo + título + institución + fin
+        key = (tipo, norm_key(titulo), norm_key(inst), norm_key(fin))
+        if key in seen:
+            continue
 
         seen.add(key)
         counts[tipo] += 1
@@ -405,12 +418,15 @@ if uploaded:
                 elif re.search(r"\bposdoc\b|\bpostdoc\b|\bposdoctorad\b|\bpostdoctorad\b", item_l):
                     c = form_counts.get("posdoc", 0)
 
-            # 🔒 BLOQUEO EXTRA (por seguridad):
-            # si el ítem es de títulos (posdoc/posgrado/grado) y NO estamos en Formación Académica,
-            # NO permitimos conteo por regex global (evita que RRHH o cualquier sección contamine).
+            # 🔒 BLOQUEO EXTRA:
+            # si el ítem es de títulos y NO estamos en Formación Académica,
+            # NO permitir conteo por regex global (evita contaminación).
             if c is None:
                 item_l = item.lower()
-                es_titulo = bool(re.search(r"\b(doctorad|maestr|magister|especializ|posdoc|postdoc|posdoctor|postdoctor|t[ií]tulo de grado|grado|profesorado)\b", item_l))
+                es_titulo = bool(re.search(
+                    r"\b(doctorad|maestr|magister|especializ|posdoc|postdoc|posdoctor|postdoctor|t[ií]tulo de grado|grado|profesorado)\b",
+                    item_l
+                ))
                 if es_titulo and not (section.lower().startswith("formación académica") or section.lower().startswith("formacion academica")):
                     c = 0
 
