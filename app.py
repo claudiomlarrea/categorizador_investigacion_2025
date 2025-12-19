@@ -162,7 +162,8 @@ def obtener_categoria(total, criteria_dict):
 
 # Bloque de "finalización" (ya sin tildes)
 END_RX = re.compile(
-    r"ano de (finalizacion|obtencion|graduacion)\s*:\s*(\d{2}/)?(19|20)\d{2}",
+    r"(?:ano|año)\s+de\s+(finalizacion|finalización|obtencion|obtención|graduacion|graduación|egreso)\s*:?\s*"
+    r"(?:(\d{1,2})\s*([/.\-])\s*)?((?:19|20)\d{2})",
     re.IGNORECASE,
 )
 
@@ -237,7 +238,7 @@ def count_titulo_grado_finalizado_block(norm_text: str) -> int:
     # Títulos de grado típicos + tecnicaturas universitarias
     grado_title = (
         r"(?:"
-        r"licenciad[oa]\s+en\s+[a-z0-9 .,'\"-]{2,90}|"
+        r"licenciad[oa]\s+(?:en\s+)?[a-z0-9 .,'\"-]{2,90}|"
         r"contador[ae]?\s+public[oa]|"
         r"contadora\s+publica|contador\s+publico|"
         r"ingenier[oa]\s+en\s+[a-z0-9 .,'\"-]{2,90}|ingenier[oa]|"
