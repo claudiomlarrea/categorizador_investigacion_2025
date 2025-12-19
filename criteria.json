@@ -35,7 +35,7 @@
           "max_points": 40
         },
         "Posdoctorado (en curso o finalizado)": {
-          "pattern": "(?ims)(?:^|\\n)\\s*(?:Posdoctorado|Postdoctorado|Posdoctoral)\\b[^\\n]{0,220}?(?:\\b\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\b|\\b\\d{4}\\s*[-–]\\s*(?:\\d{4}|Actualidad)\\b|A[nñ]o\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2}))",
+          "pattern": "(?ims)(?:^|\\n)\\s*(?:Posdoctorado|Postdoctorado|Posdoctoral)\\b[\\s\\S]{0,260}?(?:Universidad|Facultad|CONICET|Instituto|Center|Centre|Laboratorio)\\b[\\s\\S]{0,260}?(?:\\b\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\b|\\b\\d{4}\\s*[-–]\\s*(?:\\d{4}|Actualidad)\\b|A[nñ]o\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2}))",
           "unit_points": 40,
           "max_points": 40
         },
