@@ -313,9 +313,18 @@ def counts_from_formacion(block: str) -> dict:
             if not entry_is_completed(e):
                 continue
 
-        # posdoc: por defecto cuenta si aparece
-        # Para exigir finalización, descomentá:
-        # if tipo == "posdoc" and not entry_is_completed(e): continue
+        # posdoc: SOLO cuenta si hay evidencia de registro real (no solo el rótulo vacío del CVAR)
+        if tipo == "posdoc":
+            tiene_evidencia = (
+                RE_FINISH_YEAR.search(e)
+                or RE_SITUACION_COMPLETO.search(e)
+                or RE_RANGE.search(e)
+                or re.search(r"\bUNIVERSIDAD\b|\bFACULTAD\b|;", e, re.IGNORECASE)
+                or re.search(r"\".+?\"", e)  # título entre comillas
+            )
+            # si NO hay evidencia -> es un encabezado vacío / plantilla
+            if not tiene_evidencia:
+                continue
 
         seen.add(key)
         counts[tipo] += 1
