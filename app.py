@@ -33,18 +33,8 @@ def load_json(path):
 
 criteria = load_json("criteria.json")
 
-# -------------------------
-# Debug (por defecto OFF)
-# -------------------------
-DEBUG = st.sidebar.checkbox("Debug", value=False)
-
-if DEBUG:
-    try:
-        import hashlib
-        criteria_bytes = json.dumps(criteria, ensure_ascii=False, sort_keys=True).encode("utf-8")
-        st.sidebar.caption("criteria.json hash: " + hashlib.md5(criteria_bytes).hexdigest())
-    except Exception:
-        pass
+# Debug SOLO en el cuerpo (NO sidebar)
+DEBUG = st.checkbox("Debug (mostrar texto y entradas detectadas)", value=False)
 
 # =========================
 # Extracción de texto
@@ -104,12 +94,9 @@ FORMACION_HEADERS = [
 ]
 
 NEXT_SECTION_MARKERS = [
-    # cortar antes de RRHH
     r"\n\s*FORMACI[ÓO]N\s+DE\s+RECURSOS\s+HUMANOS\b",
     r"\n\s*RECURSOS\s+HUMANOS\b",
     r"\n\s*RRHH\b",
-
-    # otras secciones típicas
     r"\n\s*ANTECEDENTES\b",
     r"\n\s*PRODUCCI[ÓO]N\b",
     r"\n\s*PUBLICACIONES\b",
@@ -141,15 +128,11 @@ def extract_formacion_academica_block(full_text: str) -> str:
     return tail[:end_idx].strip()
 
 # ==========================================================
-# 2) Parseo por entradas + finalización
+# 2) Parseo por entradas + FINALIZACIÓN EXPLÍCITA
+#    (NO usar rangos de años como evidencia de finalización)
 # ==========================================================
 RE_IN_PROGRESS = re.compile(
     r"\b(Actualidad|En\s+curso|Cursando|Actualmente|Vigente|En\s+desarrollo|Hasta\s+la\s+actualidad|A\s+la\s+fecha)\b",
-    re.IGNORECASE
-)
-
-RE_ENDS_WITH_ACTUALIDAD = re.compile(
-    r"(\d{2}/\d{4}|\d{4})\s*([\-–—])\s*Actualidad\b",
     re.IGNORECASE
 )
 
@@ -163,8 +146,9 @@ RE_SITUACION_COMPLETO = re.compile(
     re.IGNORECASE
 )
 
-RE_RANGE = re.compile(
-    r"\b([0-3]?\d/\d{4}|\d{4})\s*([\-–—])\s*([0-3]?\d/\d{4}|\d{4}|Actualidad)\b",
+# Marcadores explícitos (tolerantes) de finalización/egreso
+RE_COMPLETION_CUES = re.compile(
+    r"\b(finalizad[oa]|egresad[oa]|graduad[oa]|t[ií]tulo\s+obtenido|t[ií]tulo\s+otorgado|complet(?:o|ada))\b",
     re.IGNORECASE
 )
 
@@ -183,23 +167,8 @@ RE_ENTRY_START = re.compile(
     re.IGNORECASE
 )
 
-# >>> POSDOC: conteo ultra estricto (no se mezcla con split_entries)
-RE_POSDOC_STRICT = re.compile(
-    r"(?ims)^"
-    r"(Posdoctorado|Postdoctorado)\b"            # debe iniciar la entrada
-    r"[\s\S]{0,900}?"                            # cuerpo acotado
-    r"(?:"                                      # evidencia requerida:
-        r"(UNIVERSIDAD|FACULTAD|INSTITUTO|CONICET|SEDE)"  # institución
-        r"|\".{3,220}?\""                        # o título entre comillas
-    r")"
-    r"[\s\S]{0,900}?"
-    r"(?:"                                      # y además fechas/rango/fin
-        r"A[nñ]o\s+de\s+(?:finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:"
-        r"|Situaci[oó]n\s+del\s+nivel\s*:\s*Completo"
-        r"|\b\d{2}/\d{4}\s*[-–—]\s*(?:\d{2}/\d{4}|Actualidad)\b"
-        r"|\b\d{4}\s*[-–—]\s*(?:\d{4}|Actualidad)\b"
-    r")",
-)
+# POSDOC: también requiere evidencia explícita (no basta “Actualidad”)
+RE_POSDOC_ENTRY = re.compile(r"(?ims)^(Posdoctorado|Postdoctorado)\b[\s\S]{0,1600}", re.IGNORECASE)
 
 def split_entries(block: str) -> list[str]:
     if not block:
@@ -219,8 +188,7 @@ def split_entries(block: str) -> list[str]:
     if buf:
         entries.append("\n".join(buf).strip())
 
-    # IMPORTANTE: eliminamos el fallback que parte por "Posdoctorado"
-    # porque genera falsos positivos en PDFs.
+    # fallback SOLO por títulos principales (sin posdoc)
     if len(entries) == 1 and len(entries[0]) > 1500:
         parts = re.split(
             r"(?i)(?=Doctorado\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|T[eé]cnica\s+Universitaria\b|Tecnicatura\b|Profesorado\b)",
@@ -230,18 +198,18 @@ def split_entries(block: str) -> list[str]:
 
     return entries
 
-def has_completed_range(entry: str) -> bool:
-    for m in RE_RANGE.finditer(entry):
-        end = (m.group(3) or "").strip().lower()
-        if end != "actualidad":
-            return True
-    return False
-
 def entry_is_completed(entry: str) -> bool:
-    if RE_FINISH_YEAR.search(entry) or RE_SITUACION_COMPLETO.search(entry) or has_completed_range(entry):
-        return True
-    if RE_IN_PROGRESS.search(entry) or RE_ENDS_WITH_ACTUALIDAD.search(entry):
+    # Si dice en curso/actualidad => NO
+    if RE_IN_PROGRESS.search(entry):
         return False
+    # Evidencia fuerte => SI
+    if RE_FINISH_YEAR.search(entry):
+        return True
+    if RE_SITUACION_COMPLETO.search(entry):
+        return True
+    if RE_COMPLETION_CUES.search(entry):
+        return True
+    # Si solo hay años sueltos o rangos => NO (regla dura anti-falsos positivos)
     return False
 
 def get_finish_token(entry: str) -> str:
@@ -250,9 +218,8 @@ def get_finish_token(entry: str) -> str:
         return m.group(2).strip()
     if RE_SITUACION_COMPLETO.search(entry):
         return "COMPLETO"
-    m2 = RE_RANGE.search(entry)
-    if m2:
-        return (m2.group(3) or "").strip()
+    if RE_COMPLETION_CUES.search(entry):
+        return "FINALIZADO"
     return ""
 
 def get_first_line_title(entry: str) -> str:
@@ -300,27 +267,27 @@ def classify_entry(entry: str) -> str:
 
     return "otro"
 
-def count_posdoc_strict(block: str) -> int:
+def count_posdoc_explicit(block: str) -> int:
     """
-    Cuenta posdoctorados SOLO si hay entradas explícitas que:
-    - comiencen con Posdoctorado/Postdoctorado
-    - tengan institución o comillas
-    - y tengan fechas/rango/fin
-    Además excluye contexto RRHH/beca.
+    Posdoc SOLO si:
+    - existe una entrada que comienza con Posdoctorado/Postdoctorado
+    - y tiene evidencia explícita de finalización (misma regla dura)
     """
     if not block:
         return 0
     matches = []
-    for m in RE_POSDOC_STRICT.finditer(block):
+    for m in RE_POSDOC_ENTRY.finditer(block):
         chunk = m.group(0)
+        # Excluir si parece RRHH/becas
         if RE_BECARIO_CONTEXT.search(chunk):
             continue
-        matches.append(chunk)
+        # Debe ser "entrada" real (primera línea ya es posdoc), y además finalización explícita
+        if entry_is_completed(chunk):
+            matches.append(chunk)
 
-    # dedup por texto normalizado (por si el PDF repite encabezados)
     seen = set()
     for x in matches:
-        k = norm_key(re.sub(r"\s+", " ", x)[:300])
+        k = norm_key(re.sub(r"\s+", " ", x)[:400])
         seen.add(k)
     return len(seen)
 
@@ -337,8 +304,7 @@ def counts_from_formacion(block: str) -> dict:
         "posdoc": 0,
     }
 
-    # POSDOC: conteo separado, ultra estricto
-    counts["posdoc"] = count_posdoc_strict(block)
+    counts["posdoc"] = count_posdoc_explicit(block)
 
     for e in entries:
         tipo = classify_entry(e)
@@ -377,26 +343,23 @@ if uploaded:
     raw_text = normalize_spaces(raw_text)
     st.success(f"Archivo cargado: {uploaded.name}")
 
+    form_block = extract_formacion_academica_block(raw_text)
+    form_counts = counts_from_formacion(form_block)
+
     if DEBUG:
         with st.expander("Ver texto extraído (debug)"):
             st.text_area("Texto", raw_text, height=240)
 
-    form_block = extract_formacion_academica_block(raw_text)
-
-    if DEBUG:
         with st.expander("Ver sección de Formación académica (debug)"):
             st.text_area("FORMACIÓN ACADÉMICA (recorte)", form_block if form_block else "[No se encontró la sección]", height=240)
 
         with st.expander("Ver entradas detectadas en Formación (debug avanzado)"):
             entries_dbg = split_entries(form_block)
             st.write(f"Entradas detectadas: {len(entries_dbg)}")
-            for i, ent in enumerate(entries_dbg[:50], start=1):
+            for i, ent in enumerate(entries_dbg[:60], start=1):
                 st.markdown(f"**Entrada {i}** — tipo: `{classify_entry(ent)}` — finalizado: `{entry_is_completed(ent)}`")
                 st.code(ent[:1200])
-
-            st.write(f"Posdoc (estricto) detectados: {count_posdoc_strict(form_block)}")
-
-    form_counts = counts_from_formacion(form_block)
+            st.write(f"Posdoc explícitos finalizados detectados: {count_posdoc_explicit(form_block)}")
 
     results = {}
     total = 0.0
@@ -430,7 +393,7 @@ if uploaded:
                 elif re.search(r"\bposdoc\b|\bpostdoc\b|\bposdoctorad\b|\bpostdoctorad\b", item_l):
                     c = form_counts.get("posdoc", 0)
 
-            # 🔒 Bloqueo extra: evitar contaminación de títulos en otras secciones
+            # 🔒 Bloqueo extra: evitar conteo de títulos fuera de Formación
             if c is None:
                 item_l = item.lower()
                 es_titulo = bool(re.search(
@@ -470,7 +433,6 @@ if uploaded:
     st.subheader("Puntaje total y categoría")
     st.metric("Total acumulado", f"{total:.1f}")
     st.metric("Categoría alcanzada", categoria_label)
-
     if desc_cat:
         st.info(f"Descripción de la categoría: {desc_cat}")
 
