@@ -264,13 +264,12 @@ def classify_entry(entry: str) -> str:
         return "especializacion"
     if re.search(r"\bPos\s*graduad[oa]\b|\bPos\s*grado\b|\bPosgrado\b", entry, re.IGNORECASE):
         return "otro"
-   # Posdoc: SOLO si el primer renglón describe un posdoc real (no rótulo vacío)
+
+    # Posdoc: SOLO si hay un título REAL entre comillas (evita plantillas del CVAR)
     first = get_first_line_title(entry)
     if re.match(r"^(Posdoctorado|Postdoctorado)\b", first, flags=re.IGNORECASE):
-        # exige que el título del posdoc esté en la primera línea
-        if re.search(r"\".+?\"|\b(en|de)\b", first, flags=re.IGNORECASE):
+        if re.search(r"\".{3,}?\"", entry):  # exige título entre comillas
             return "posdoc"
-        # si es solo un rótulo tipo plantilla, NO es posdoc
         return "otro"
 
     # Profesorado universitario
