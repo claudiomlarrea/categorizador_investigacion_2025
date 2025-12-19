@@ -1,5 +1,5 @@
 import streamlit as st
-import re, json, io
+import re, json, io, os, hashlib
 import pandas as pd
 from docx import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -15,8 +15,12 @@ st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wid
 st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
 st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
 
+# =========================
+# Carga JSON (SIN líos de cache)
+# - cachea pero invalida si cambia el archivo (mtime)
+# =========================
 @st.cache_data(show_spinner=False)
-def load_json(path):
+def load_json(path: str, mtime: float):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -31,7 +35,15 @@ def load_json(path):
         st.error(f"Error leyendo criteria.json: {e}")
         st.stop()
 
-criteria = load_json("criteria.json")
+CRITERIA_PATH = "criteria.json"
+criteria = load_json(CRITERIA_PATH, os.path.getmtime(CRITERIA_PATH))
+
+# Mostrar hash del criteria cargado (para ver si realmente tomó cambios)
+try:
+    criteria_bytes = json.dumps(criteria, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    st.sidebar.caption("criteria.json hash: " + hashlib.md5(criteria_bytes).hexdigest())
+except Exception:
+    pass
 
 
 # =========================
@@ -58,9 +70,6 @@ def extract_text_pdf(file):
 # =========================
 # Helpers
 # =========================
-def match_count(pattern, text):
-    return len(re.findall(pattern, text, re.IGNORECASE)) if pattern else 0
-
 def clip(v, cap):
     return min(v, cap) if cap else v
 
@@ -85,10 +94,32 @@ def obtener_categoria(total, criteria_dict):
 
     return mejor_clave, mejor_desc
 
+# Flags default desde meta: "is" => IGNORECASE + DOTALL
+def get_default_regex_flags(criteria_dict) -> int:
+    flags_str = (criteria_dict.get("meta", {}) or {}).get("regex_flags_default", "is")
+    flags = 0
+    if "i" in flags_str.lower():
+        flags |= re.IGNORECASE
+    if "s" in flags_str.lower():
+        flags |= re.DOTALL
+    if "m" in flags_str.lower():
+        flags |= re.MULTILINE
+    return flags
+
+DEFAULT_RE_FLAGS = get_default_regex_flags(criteria)
+
+def match_count(pattern, text, flags=DEFAULT_RE_FLAGS):
+    if not pattern:
+        return 0
+    try:
+        return len(list(re.finditer(pattern, text, flags)))
+    except re.error:
+        # si el regex es inválido, no rompas toda la app
+        return 0
+
 
 # ==========================================================
 # 1) Recorte robusto de la sección "FORMACION ACADÉMICA"
-#    (CORRECCIÓN: cortar ANTES de RRHH, para que nunca se mezcle)
 # ==========================================================
 FORMACION_HEADERS = [
     r"FORMACI[ÓO]N ACAD[ÉE]MICA",
@@ -97,7 +128,7 @@ FORMACION_HEADERS = [
 ]
 
 NEXT_SECTION_MARKERS = [
-    # ⬇️ CORRECCIÓN CLAVE: RRHH
+    # RRHH: cortar antes para no mezclar
     r"\n\s*FORMACI[ÓO]N\s+DE\s+RECURSOS\s+HUMANOS\b",
     r"\n\s*RECURSOS\s+HUMANOS\b",
     r"\n\s*RRHH\b",
@@ -135,9 +166,6 @@ def extract_formacion_academica_block(full_text: str) -> str:
 
 # ==========================================================
 # 2) Parseo robusto por "inicio de título" + finalización
-#    (CORRECCIÓN: no puntuar posgrados/grados sin evidencia de finalización)
-#    (CORRECCIÓN: posdoc solo si empieza con Posdoctorado/Postdoctorado)
-#    (CORRECCIÓN: deduplicación no colapsa 2 doctorados distintos)
 # ==========================================================
 RE_IN_PROGRESS = re.compile(
     r"\b(Actualidad|En\s+curso|Cursando|Actualmente|Vigente|En\s+desarrollo|Hasta\s+la\s+actualidad|A\s+la\s+fecha)\b",
@@ -159,19 +187,16 @@ RE_SITUACION_COMPLETO = re.compile(
     re.IGNORECASE
 )
 
-# Rango tipo 2003 - 2010 o 03/2003 - 12/2010 (con guiones -, – o —)
 RE_RANGE = re.compile(
     r"\b([0-3]?\d/\d{4}|\d{4})\s*([\-–—])\s*([0-3]?\d/\d{4}|\d{4}|Actualidad)\b",
     re.IGNORECASE
 )
 
-# Contexto RRHH/beca/etc. (para excluir falsos positivos en posdoc)
 RE_BECARIO_CONTEXT = re.compile(
     r"\b(becari[oa]s?|beca|direcci[oó]n|co[- ]?direcci[oó]n|tesista|investigador/a|investigador)\b",
     re.IGNORECASE
 )
 
-# Detecta líneas que suelen iniciar una "entrada" de título
 RE_ENTRY_START = re.compile(
     r"^(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
     r"Especializaci[oó]n|Especialista|Posdoctorado|Postdoctorado|"
@@ -203,10 +228,10 @@ def split_entries(block: str) -> list[str]:
     if buf:
         entries.append("\n".join(buf).strip())
 
-    # fallback por si entró un bloque enorme
     if len(entries) == 1 and len(entries[0]) > 1200:
         parts = re.split(
-            r"(?i)(?=Doctorado\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|T[eé]cnica\s+Universitaria\b|Tecnicatura\b|Profesorado\b|Posdoctorado\b|Postdoctorado\b)",
+            r"(?i)(?=Doctorado\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|"
+            r"T[eé]cnica\s+Universitaria\b|Tecnicatura\b|Profesorado\b|Posdoctorado\b|Postdoctorado\b)",
             entries[0]
         )
         entries = [p.strip() for p in parts if p.strip()]
@@ -221,13 +246,10 @@ def has_completed_range(entry: str) -> bool:
     return False
 
 def entry_is_completed(entry: str) -> bool:
-    # ✅ SOLO FINALIZADOS: año de finalización / situación completo / rango con fin != Actualidad
     if RE_FINISH_YEAR.search(entry) or RE_SITUACION_COMPLETO.search(entry) or has_completed_range(entry):
         return True
-    # Si aparece "Actualidad/en curso", NO está finalizado.
     if RE_IN_PROGRESS.search(entry) or RE_ENDS_WITH_ACTUALIDAD.search(entry):
         return False
-    # Sin evidencia de finalización -> NO finalizado
     return False
 
 def get_finish_token(entry: str) -> str:
@@ -250,10 +272,6 @@ def get_first_line_title(entry: str) -> str:
     return (lines[0] if lines else "").strip()
 
 def get_institution_hint(entry: str) -> str:
-    """
-    Devuelve una línea representativa de institución para robustecer deduplicación:
-    UNIVERSIDAD / FACULTAD / INSTITUTO / SEDE
-    """
     lines = [l.strip() for l in entry.split("\n") if l.strip()]
     for l in lines[:10]:
         if re.search(r"\b(UNIVERSIDAD|FACULTAD|INSTITUTO|SEDE)\b", l, re.IGNORECASE):
@@ -267,24 +285,23 @@ def norm_key(s: str) -> str:
     return s
 
 def classify_entry(entry: str) -> str:
-    # Posgrados primero
     if re.search(r"\bDoctorado\b|\bDoctor\s+en\b|\bDoctor\s+de\s+la\s+Universidad\b", entry, re.IGNORECASE):
         return "doctorado"
     if re.search(r"\bMaestr[ií]a\b|\bMag[ií]ster\b", entry, re.IGNORECASE):
         return "maestria"
     if re.search(r"\bEspecializaci[oó]n\b|\bEspecialista\b", entry, re.IGNORECASE):
         return "especializacion"
-    # “Posgrado/Pos graduado” NO es título
+
+    # “Posgrado” no es título
     if re.search(r"\bPos\s*graduad[oa]\b|\bPos\s*grado\b|\bPosgrado\b", entry, re.IGNORECASE):
         return "otro"
 
-    # Posdoc: SOLO si el PRIMER renglón inicia con Posdoctorado/Postdoctorado
+    # Posdoc SOLO si la PRIMERA línea es Posdoctorado/Postdoctorado
     first = get_first_line_title(entry)
     if re.match(r"^(Posdoctorado|Postdoctorado)\b", first, flags=re.IGNORECASE):
-        # excluir si parece RRHH/beca
         if RE_BECARIO_CONTEXT.search(entry):
             return "otro"
-        # exigir evidencia fuerte (comillas o rango o fin/completo)
+        # evidencia fuerte
         tiene_evidencia = (
             re.search(r"\".{3,}?\"", entry)
             or RE_FINISH_YEAR.search(entry)
@@ -293,11 +310,9 @@ def classify_entry(entry: str) -> str:
         )
         return "posdoc" if tiene_evidencia else "otro"
 
-    # Profesorado universitario
     if re.search(r"\bProfesorado\b|\bProfesor\s+en\b", entry, re.IGNORECASE):
         return "profesorado"
 
-    # Grado
     if re.search(
         r"\b(Licenciatura|Licenciado/a|Licenciado|Licenciada|T[eé]cnica\s+Universitaria|Tecnicatura|"
         r"Contador|Contadora|Contadur[ií]a|Abogado|Abogada|Ingenier|Bioqu[ií]mic|M[eé]dic|Farmac[eé]utic|Arquitect|Odont[oó]log)\b",
@@ -309,11 +324,6 @@ def classify_entry(entry: str) -> str:
     return "otro"
 
 def counts_from_formacion(block: str) -> dict:
-    """
-    Cuenta títulos SOLO FINALIZADOS.
-    - Posdoc solo si empieza con Posdoctorado/Postdoctorado y está finalizado (y no es RRHH/beca).
-    - Deduplicación robusta: incluye pista de institución para NO colapsar 2 doctorados distintos.
-    """
     entries = split_entries(block)
     seen = set()
 
@@ -331,11 +341,9 @@ def counts_from_formacion(block: str) -> dict:
         if tipo not in counts:
             continue
 
-        # ✅ SOLO FINALIZADOS (incluye posdoc)
         if not entry_is_completed(e):
             continue
 
-        # ✅ POSDOC: excluir contexto RRHH/beca/etc.
         if tipo == "posdoc" and RE_BECARIO_CONTEXT.search(e):
             continue
 
@@ -343,7 +351,6 @@ def counts_from_formacion(block: str) -> dict:
         fin = get_finish_token(e)
         inst = get_institution_hint(e)
 
-        # ✅ Dedup robusto: tipo + título + institución + fin
         key = (tipo, norm_key(titulo), norm_key(inst), norm_key(fin))
         if key in seen:
             continue
@@ -415,12 +422,11 @@ if uploaded:
                     c = form_counts.get("grado", 0)
                 elif "profesorado" in item_l or "docencia universitaria" in item_l:
                     c = form_counts.get("profesorado", 0)
-                elif re.search(r"\bposdoc\b|\bpostdoc\b|\bposdoctorad\b|\bpostdoctorad\b", item_l):
+                # ✅ FIX CLAVE: esto ahora sí detecta posdoctorado/postdoctorado
+                elif re.search(r"\bposdoc\b|\bpostdoc\b|\bposdoctor\b|\bpostdoctor\b", item_l):
                     c = form_counts.get("posdoc", 0)
 
-            # 🔒 BLOQUEO EXTRA:
-            # si el ítem es de títulos y NO estamos en Formación Académica,
-            # NO permitir conteo por regex global (evita contaminación).
+            # Bloqueo extra anti-contaminación fuera de Formación
             if c is None:
                 item_l = item.lower()
                 es_titulo = bool(re.search(
@@ -432,7 +438,7 @@ if uploaded:
 
             # si no aplicó override/bloqueo -> regex global
             if c is None:
-                c = match_count(pattern, raw_text)
+                c = match_count(pattern, raw_text, flags=DEFAULT_RE_FLAGS)
 
             pts = clip(c * icfg.get("unit_points", 0), icfg.get("max_points", 0))
             rows.append({
