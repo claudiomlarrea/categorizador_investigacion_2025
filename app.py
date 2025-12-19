@@ -1,9 +1,10 @@
 # app.py — Valorador de CV Docente/Investigador (UCCuyo)
-# Reglas clave:
-# - Para títulos estructurales (Doctorado/Maestría/Especialización/Grado): detecta 1 o 0 (anti-duplicación).
-# - No puntúa posgrados "en curso" (Actualidad/En curso/Cursando).
-# - Tolera "null" intermedio típico de CVar.
-# - Resto de ítems: conteo por regex + tope por ítem + tope por sección.
+# FIX CLAVE:
+# - Para títulos estructurales (Doctorado/Maestría/Especialización/Grado/Profesorado):
+#   toma BLOQUES recortados (hasta el próximo título) para que "Actualidad" de otro ítem no contamine.
+# - No puntúa posgrados "en curso" (Actualidad/En curso/Cursando/etc.).
+# - Tolera "null" intermedio típico del CVar.
+# - Ítems no estructurales: conteo por regex del criteria.json + topes.
 
 import streamlit as st
 import re, json, io
@@ -64,20 +65,15 @@ def extract_text_pdf(file) -> str:
     return "\n".join(chunks)
 
 # =========================
-# Normalización (CLAVE)
+# Normalización
 # =========================
 def normalize_text(text: str) -> str:
     if not text:
         return ""
-    # Unificar guiones típicos
     text = text.replace("\u2013", "-").replace("\u2014", "-").replace("\u2212", "-")
-    # Quitar guionado por salto de línea: "inves-\ntigación" -> "investigación"
-    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
-    # Normalizar saltos de línea
+    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)  # guionado por corte de línea
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    # Espacios
     text = re.sub(r"[ \t]+", " ", text)
-    # Compactar líneas vacías
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text
 
@@ -86,7 +82,7 @@ def normalize_text(text: str) -> str:
 # =========================
 def flags_from_meta(criteria_dict) -> int:
     meta = criteria_dict.get("meta", {})
-    f = meta.get("regex_flags_default", "is")  # default: i + s
+    f = meta.get("regex_flags_default", "is")
     flags = 0
     if "i" in f:
         flags |= re.IGNORECASE
@@ -103,7 +99,6 @@ def compile_pattern(pattern: str, flags: int):
     return re.compile(pattern, flags)
 
 def match_count(pattern: str, text: str) -> int:
-    """Conteo genérico: cuenta matches del patrón (para ítems no estructurales)."""
     if not pattern:
         return 0
     try:
@@ -126,39 +121,62 @@ def clip(v, cap):
 # Reglas de finalización (NO EN CURSO)
 # =========================
 INPROGRESS_RX = re.compile(
-    r"(?i)\b(Actualidad|En\s+curso|Cursando|Doctorand[oa]|Maestrand[oa]|"
-    r"Especializand[oa]|No\s+finalizad[oa]|Sin\s+finalizar|Incompleto)\b"
+    r"(?i)\b(Actualidad|En\s+curso|Cursando|No\s+finalizad[oa]|Sin\s+finalizar|Incompleto|"
+    r"Doctorand[oa]|Maestrand[oa]|Especializand[oa])\b"
 )
 
-# Evidencia fuerte de finalización:
-# - "Año de finalización/obtención/graduación: ..."
-# - o "Situación del nivel: Completo"
-# - o rango "MM/YYYY - MM/YYYY" (sin 'Actualidad')
-# - o año suelto si está dentro del bloque y NO está "Actualidad" (como fallback)
+# Evidencia de finalización:
 FINISH_RX = re.compile(
-    r"(?is)(Situaci[oó]n\s+del\s+nivel\s*:\s*Completo|"
+    r"(?is)("
+    r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo|"
     r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:\d{2}/)?(?:19\d{2}|20\d{2})|"
     r"\b\d{2}/\d{4}\s*[-–]\s*\d{2}/\d{4}\b|"
-    r"\b(19\d{2}|20\d{2})\b)"
+    r")"
 )
 
-def has_completed_title(title_anchor_regex: str, text: str, max_block_chars: int = 1800) -> int:
+# =========================
+# BLOQUES recortados por próximo título (FIX)
+# =========================
+# Un “ancla global” que marca el inicio de cualquier título/posgrado (para cortar bloques).
+GLOBAL_ANCHOR_RX = re.compile(
+    r"(?i)\b("
+    r"Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|"
+    r"Maestr[ií]a|Mag[ií]ster|"
+    r"Especializaci[oó]n|Especialista|"
+    r"Licenciad[oa]\s+en|Licenciatura\s+en|"
+    r"T[eé]cnic[ao]\s+Universitari[ao]|Tecnicatura|"
+    r"Profesorado|Profesor\s+Universitari[oa]|Docente\s+Universitario|Profesor\s+en"
+    r")\b"
+)
+
+def get_local_block(text: str, start_idx: int, max_chars: int = 2000) -> str:
     """
-    Devuelve 1 si existe AL MENOS UN título finalizado válido.
-    Nunca devuelve más de 1.
-    Tolera 'null' intermedio típico de CVar.
-    Excluye 'Actualidad/En curso/Cursando' (no puntúa).
+    Devuelve el bloque desde start_idx hasta el próximo título (ancla global) o hasta max_chars.
+    Esto evita que "Actualidad" de un posgrado posterior contamine un título finalizado previo.
+    """
+    end_limit = min(len(text), start_idx + max_chars)
+    tail = text[start_idx:end_limit]
+
+    # Buscar el próximo ancla global DESPUÉS del primer carácter del bloque
+    m_next = GLOBAL_ANCHOR_RX.search(tail, pos=1)
+    if m_next:
+        tail = tail[:m_next.start()]
+
+    # Limpiar ruido CVar
+    tail = re.sub(r"\bnull\b", " ", tail, flags=re.IGNORECASE)
+    tail = re.sub(r"[ \t]+", " ", tail)
+    return tail.strip()
+
+def has_completed_title(title_anchor_regex: str, text: str) -> int:
+    """
+    Devuelve 1 si existe AL MENOS UN título/posgrado finalizado válido (no en curso).
+    (Nunca >1, porque el ítem tiene tope y semántica 1/0.)
     """
     rx_anchor = re.compile(title_anchor_regex, re.IGNORECASE)
     for m in rx_anchor.finditer(text):
-        start = m.start()
-        end = min(len(text), m.start() + max_block_chars)
-        block = text[start:end]
+        block = get_local_block(text, m.start(), max_chars=2500)
 
-        # limpiar ruido típico de CVar
-        block = re.sub(r"\bnull\b", " ", block, flags=re.IGNORECASE)
-
-        # excluir en curso
+        # excluir si está en curso
         if INPROGRESS_RX.search(block):
             continue
 
@@ -220,42 +238,32 @@ if uploaded:
             unit = float(icfg.get("unit_points", 0) or 0)
             item_cap = float(icfg.get("max_points", 0) or 0)
 
-            # --- REGLAS ESPECIALES: títulos estructurales (1 o 0) ---
+            # --- REGLAS ESPECIALES: títulos estructurales ---
             if section == "Formación académica y complementaria":
                 if item == "Doctorado (finalizado)":
-                    c = has_completed_title(
-                        r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b",
-                        raw_text
-                    )
+                    c = has_completed_title(r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b", raw_text)
+
                 elif item == "Maestría (finalizada)":
-                    c = has_completed_title(
-                        r"\b(Maestr[ií]a|Mag[ií]ster)\b",
-                        raw_text
-                    )
+                    c = has_completed_title(r"\b(Maestr[ií]a|Mag[ií]ster)\b", raw_text)
+
                 elif item == "Especialización (finalizada)":
-                    c = has_completed_title(
-                        r"\b(Especializaci[oó]n|Especialista)\b",
-                        raw_text
-                    )
+                    c = has_completed_title(r"\b(Especializaci[oó]n|Especialista)\b", raw_text)
+
                 elif item == "Título de grado (finalizado)":
-                    # Incluye LICENCIADO/A EN... y TÉCNICA/O UNIVERSITARIO/A ...
+                    # Incluye variantes típicas del CVar (como Vinader):
+                    # "LICENCIADO EN ...", "Técnica Universitaria en ...", etc.
                     c = has_completed_title(
                         r"\b("
                         r"Licenciad[oa]\s+en|Licenciatura\s+en|"
-                        r"T[eé]cnic[ao]\s+Universitari[ao]|Tecnicatura|"
-                        r"Abogad[oa]|M[eé]dic[oa]|Bioqu[ií]mic[oa]|"
-                        r"Ingenier[oa]|Contador[oa]?|Arquitect[oa]|"
-                        r"Veterinari[oa]|Farmac[eé]utic[oa]"
+                        r"T[eé]cnic[ao]\s+Universitari[ao]\s+en|Tecnicatura\s+en|"
                         r")\b",
                         raw_text
                     )
+
                 elif item == "Profesorado/Docencia universitaria (finalizado)":
-                    c = has_completed_title(
-                        r"\b(Docente\s+Universitario|Profesorado|Profesor\s+Universitari[oa]|Profesor\s+en)\b",
-                        raw_text
-                    )
+                    c = has_completed_title(r"\b(Profesorado|Profesor\s+Universitari[oa]|Docente\s+Universitario|Profesor\s+en)\b", raw_text)
+
                 else:
-                    # el resto (cursos, idiomas, etc.) por conteo normal
                     c = match_count(pattern, raw_text)
             else:
                 c = match_count(pattern, raw_text)
@@ -291,7 +299,6 @@ if uploaded:
     st.subheader("Puntaje total y categoría")
     st.metric("Total acumulado", f"{total:.1f}")
     st.metric("Categoría alcanzada", categoria_label)
-
     if desc_cat:
         st.info(f"Descripción de la categoría: {desc_cat}")
 
@@ -305,8 +312,7 @@ if uploaded:
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
-            sheet = sec[:31]
-            data["df"].to_excel(writer, sheet_name=sheet, index=False)
+            data["df"].to_excel(writer, sheet_name=sec[:31], index=False)
 
         resumen = pd.DataFrame({
             "Sección": list(results.keys()),
