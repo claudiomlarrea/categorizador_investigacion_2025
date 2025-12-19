@@ -1,5 +1,5 @@
 import streamlit as st
-import re, json, io, unicodedata
+import re, json, io
 import pandas as pd
 from docx import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -14,7 +14,6 @@ except Exception:
 st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wide")
 st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
 st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
-
 
 # =========================
 # Cargar criteria.json
@@ -37,7 +36,6 @@ def load_json(path):
 
 criteria = load_json("criteria.json")
 
-
 # =========================
 # Extracción de texto
 # =========================
@@ -49,16 +47,54 @@ def extract_text_docx(file):
             text += "\n" + " | ".join(c.text for c in row.cells)
     return text
 
+def _pdf_extract_method_1(pdf):
+    # método estándar
+    chunks = []
+    for p in pdf.pages:
+        chunks.append(p.extract_text() or "")
+    return "\n".join(chunks)
+
+def _pdf_extract_method_2(pdf):
+    # layout=True suele rescatar PDFs “difíciles”
+    chunks = []
+    for p in pdf.pages:
+        try:
+            chunks.append(p.extract_text(layout=True) or "")
+        except TypeError:
+            # compatibilidad por si la versión no acepta layout
+            chunks.append(p.extract_text() or "")
+    return "\n".join(chunks)
+
+def _pdf_extract_method_3(pdf):
+    # extract_words: arma texto a partir de palabras (último recurso sin OCR)
+    chunks = []
+    for p in pdf.pages:
+        words = p.extract_words() or []
+        chunks.append(" ".join(w.get("text", "") for w in words))
+    return "\n".join(chunks)
 
 def extract_text_pdf(file):
     if not HAVE_PDF:
         raise RuntimeError("Falta pdfplumber. Agregalo en requirements.txt: pdfplumber")
-    chunks = []
-    with pdfplumber.open(file) as pdf:
-        for p in pdf.pages:
-            chunks.append(p.extract_text() or "")
-    return "\n".join(chunks)
 
+    with pdfplumber.open(file) as pdf:
+        t1 = _pdf_extract_method_1(pdf).strip()
+        if len(t1) >= 50:
+            return t1
+
+        t2 = _pdf_extract_method_2(pdf).strip()
+        if len(t2) >= 50:
+            return t2
+
+        t3 = _pdf_extract_method_3(pdf).strip()
+        if len(t3) >= 50:
+            return t3
+
+    # Si llega acá: casi seguro es PDF escaneado (imagen) o en capas no extraíbles
+    raise RuntimeError(
+        "Este PDF parece NO contener texto extraíble (probable escaneo/imagen). "
+        "Subí el CV en DOCX o generá un PDF desde Word/Writer (texto seleccionable)."
+    )
 
 # =========================
 # Normalización de texto
@@ -66,33 +102,12 @@ def extract_text_pdf(file):
 def normalize_text(text: str) -> str:
     if not text:
         return ""
-
-    # Unificar guiones típicos de PDF
     text = text.replace("\u2013", "-").replace("\u2014", "-").replace("\u2212", "-")
-
-    # Quitar guionado por salto de línea: "inves-\ntigación" -> "investigación"
     text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
-
-    # Normalizar saltos de línea
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-
-    # Espacios
     text = re.sub(r"[ \t]+", " ", text)
-
-    # Compactar líneas vacías
     text = re.sub(r"\n{3,}", "\n\n", text)
-
     return text
-
-
-def strip_accents_lower(s: str) -> str:
-    """
-    Para PDFs con 'Psicologìa', 'Año', etc.
-    """
-    s = unicodedata.normalize("NFKD", s)
-    s = "".join(ch for ch in s if not unicodedata.combining(ch))
-    return s.lower()
-
 
 # =========================
 # Regex flags desde criteria.json
@@ -115,7 +130,6 @@ DEFAULT_FLAGS = flags_from_meta(criteria)
 def compile_pattern(pattern: str, flags: int):
     return re.compile(pattern, flags)
 
-
 def match_count(pattern: str, text: str) -> int:
     if not pattern:
         return 0
@@ -123,9 +137,8 @@ def match_count(pattern: str, text: str) -> int:
         rx = compile_pattern(pattern, DEFAULT_FLAGS)
         return sum(1 for _ in rx.finditer(text))
     except re.error as e:
-        st.warning(f"Regex inválida: {e} | patrón: {pattern[:120]}...")
+        st.warning(f"Regex inválida: {e} | patrón: {pattern[:140]}...")
         return 0
-
 
 def clip(v, cap):
     if cap is None:
@@ -136,7 +149,6 @@ def clip(v, cap):
         return v
     return min(v, cap_val)
 
-
 # =========================
 # Categorización según puntaje
 # =========================
@@ -145,152 +157,13 @@ def obtener_categoria(total, criteria_dict):
     mejor_clave = "Sin categoría"
     mejor_desc = ""
     mejor_min = None
-
     for clave, info in categorias.items():
         min_pts = info.get("min_points", 0)
         if total >= min_pts and (mejor_min is None or min_pts > mejor_min):
             mejor_min = min_pts
             mejor_clave = clave
             mejor_desc = info.get("descripcion", "")
-
     return mejor_clave, mejor_desc
-
-
-# =========================
-# Detectores robustos (NO dependen de saltos de línea)
-# =========================
-
-# Bloque de "finalización" (ya sin tildes)
-END_RX = re.compile(
-    r"(?:ano|año)\s+de\s+(finalizacion|finalización|obtencion|obtención|graduacion|graduación|egreso)\s*:?\s*"
-    r"(?:(\d{1,2})\s*([/.\-])\s*)?((?:19|20)\d{2})",
-    re.IGNORECASE,
-)
-
-def count_posgrado_finalizado_block(norm_text: str, kind: str) -> int:
-    """
-    kind: 'doctorado'|'maestria'|'especializacion'|'profesorado'
-    Reglas:
-    - Debe existir el término (doctorado/maestria/...) y, dentro de 0..900 chars,
-      un marcador de finalización (ano de finalizacion...) o 'situacion del nivel: completo'
-    - Y NO debe haber 'actualidad' entre el término y el marcador.
-    - Dedup por bloque.
-    """
-    if not norm_text:
-        return 0
-
-    if kind == "doctorado":
-        title_rx = re.compile(r"\bdoctorad[oa]\b", re.IGNORECASE)
-    elif kind == "maestria":
-        title_rx = re.compile(r"\bmaestria\b|\bmagister\b", re.IGNORECASE)
-    elif kind == "especializacion":
-        title_rx = re.compile(r"\bespecializacion\b|\bespecialista\b", re.IGNORECASE)
-    else:
-        title_rx = re.compile(r"\bprofesorado\b|\bprofesor\b", re.IGNORECASE)
-
-    completo_rx = re.compile(r"situacion del nivel\s*:\s*completo", re.IGNORECASE)
-
-    vistos = set()
-    count = 0
-
-    for mt in title_rx.finditer(norm_text):
-        window = norm_text[mt.start(): min(len(norm_text), mt.start() + 900)]
-
-        m_end = END_RX.search(window)
-        m_comp = completo_rx.search(window)
-
-        if not (m_end or m_comp):
-            continue
-
-        marker_idx = None
-        if m_end and m_comp:
-            marker_idx = min(m_end.start(), m_comp.start())
-        elif m_end:
-            marker_idx = m_end.start()
-        else:
-            marker_idx = m_comp.start()
-
-        between = window[:marker_idx]
-        if "actualidad" in between:
-            continue
-
-        key = window[:200].strip()
-        if key in vistos:
-            continue
-        vistos.add(key)
-        count += 1
-
-    return min(count, 3)
-
-
-def count_titulo_grado_finalizado_block(norm_text: str) -> int:
-    """
-    Detecta títulos de grado por BLOQUE:
-      (titulo de grado) .... ano de finalizacion: ...
-    sin depender de '\n'.
-    Rechaza si 'actualidad' aparece dentro del bloque antes del ancla.
-
-    Dedup por (titulo_normalizado).
-    """
-    if not norm_text:
-        return 0
-
-    # Títulos de grado típicos + tecnicaturas universitarias
-    grado_title = (
-        r"(?:"
-        r"licenciad[oa]\s+(?:en\s+)?[a-z0-9 .,'\"-]{2,90}|"
-        r"contador[ae]?\s+public[oa]|"
-        r"contadora\s+publica|contador\s+publico|"
-        r"ingenier[oa]\s+en\s+[a-z0-9 .,'\"-]{2,90}|ingenier[oa]|"
-        r"abogad[oa]|"
-        r"medic[oa]|"
-        r"bioquimic[oa]|"
-        r"farmaceutic[oa]|"
-        r"odontolog[oa]|"
-        r"psicologi[aia]|psicolog[oa]|"
-        r"arquitect[oa]|"
-        r"veterinar[ioia]|"
-        r"nutricionist[ae]|"
-        r"enfermer[oa]|"
-        r"tecnic[oa]\s+universitari[oa]\s+en\s+[a-z0-9 .,'\"-]{2,90}|"
-        r"tecnic[oa]\s+universitari[oa]|"
-        r"tecnico\s+universitario"
-        r")"
-    )
-
-    block_rx = re.compile(
-        rf"(?P<title>{grado_title})"
-        rf"[\s\S]{{0,260}}?"
-        rf"(?P<end>ano de (?:finalizacion|obtencion|graduacion)\s*:\s*(?:\d{{2}}/)?(?:19|20)\d{{2}})",
-        re.IGNORECASE,
-    )
-
-    vistos = set()
-    count = 0
-
-    for m in block_rx.finditer(norm_text):
-        block = norm_text[m.start(): m.end()]
-
-        # si aparece 'actualidad' dentro del bloque, NO cuenta
-        if "actualidad" in block:
-            continue
-
-        title = re.sub(r"\s+", " ", (m.group("title") or "").strip().lower())
-        if not title:
-            continue
-
-        # Evitar que cuente posgrados por error (si el título trae "maestria/doctorado")
-        if "maestria" in title or "doctorado" in title or "especializacion" in title:
-            continue
-
-        if title in vistos:
-            continue
-        vistos.add(title)
-
-        count += 1
-
-    return min(count, 6)
-
 
 # =========================
 # UI
@@ -302,15 +175,16 @@ if uploaded:
     try:
         raw_text = extract_text_docx(uploaded) if ext == "docx" else extract_text_pdf(uploaded)
         raw_text = normalize_text(raw_text)
-        norm_text = strip_accents_lower(raw_text)
     except Exception as e:
         st.error(str(e))
         st.stop()
 
     st.success(f"Archivo cargado: {uploaded.name}")
 
+    # DEBUG ÚTIL (para detectar PDFs sin texto)
     with st.expander("Ver texto extraído (debug)"):
-        st.text_area("Texto", raw_text, height=240)
+        st.write(f"**Caracteres extraídos:** {len(raw_text)}")
+        st.text_area("Texto (preview)", raw_text[:8000], height=260)
 
     results = {}
     total = 0.0
@@ -326,24 +200,8 @@ if uploaded:
             unit = float(icfg.get("unit_points", 0) or 0)
             item_cap = float(icfg.get("max_points", 0) or 0)
 
-            sec_is_form = section.strip().lower() == "formación académica y complementaria"
-
-            if sec_is_form and item.strip().lower().startswith("doctorado"):
-                c = count_posgrado_finalizado_block(norm_text, "doctorado")
-            elif sec_is_form and item.strip().lower().startswith("maestr"):
-                c = count_posgrado_finalizado_block(norm_text, "maestria")
-            elif sec_is_form and item.strip().lower().startswith("especial"):
-                c = count_posgrado_finalizado_block(norm_text, "especializacion")
-            elif sec_is_form and item.strip().lower().startswith("profesorado"):
-                c = count_posgrado_finalizado_block(norm_text, "profesorado")
-            elif sec_is_form and item.strip().lower().startswith("título de grado"):
-                c = count_titulo_grado_finalizado_block(norm_text)
-            else:
-                # para el resto, mantenemos el matching original contra raw_text
-                c = match_count(pattern, raw_text)
-
-            pts_raw = c * unit
-            pts = clip(pts_raw, item_cap)
+            c = match_count(pattern, raw_text)
+            pts = clip(c * unit, item_cap)
 
             rows.append({
                 "Ítem": item,
@@ -373,6 +231,9 @@ if uploaded:
     if desc_cat:
         st.info(f"Descripción de la categoría: {desc_cat}")
 
+    # =========================
+    # Exportaciones
+    # =========================
     st.markdown("---")
     st.subheader("Exportar resultados")
 
