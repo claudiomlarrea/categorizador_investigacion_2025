@@ -1,5 +1,5 @@
 import streamlit as st
-import re, json, io, os, hashlib
+import re, json, io
 import pandas as pd
 from docx import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -15,12 +15,8 @@ st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wid
 st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
 st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
 
-# =========================
-# Carga JSON (SIN líos de cache)
-# - cachea pero invalida si cambia el archivo (mtime)
-# =========================
 @st.cache_data(show_spinner=False)
-def load_json(path: str, mtime: float):
+def load_json(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -35,16 +31,20 @@ def load_json(path: str, mtime: float):
         st.error(f"Error leyendo criteria.json: {e}")
         st.stop()
 
-CRITERIA_PATH = "criteria.json"
-criteria = load_json(CRITERIA_PATH, os.path.getmtime(CRITERIA_PATH))
+criteria = load_json("criteria.json")
 
-# Mostrar hash del criteria cargado (para ver si realmente tomó cambios)
-try:
-    criteria_bytes = json.dumps(criteria, ensure_ascii=False, sort_keys=True).encode("utf-8")
-    st.sidebar.caption("criteria.json hash: " + hashlib.md5(criteria_bytes).hexdigest())
-except Exception:
-    pass
+# -------------------------
+# Debug (por defecto OFF)
+# -------------------------
+DEBUG = st.sidebar.checkbox("Debug", value=False)
 
+if DEBUG:
+    try:
+        import hashlib
+        criteria_bytes = json.dumps(criteria, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        st.sidebar.caption("criteria.json hash: " + hashlib.md5(criteria_bytes).hexdigest())
+    except Exception:
+        pass
 
 # =========================
 # Extracción de texto
@@ -66,10 +66,12 @@ def extract_text_pdf(file):
             chunks.append(p.extract_text() or "")
     return "\n".join(chunks)
 
-
 # =========================
 # Helpers
 # =========================
+def match_count(pattern, text):
+    return len(re.findall(pattern, text, re.IGNORECASE)) if pattern else 0
+
 def clip(v, cap):
     return min(v, cap) if cap else v
 
@@ -84,39 +86,13 @@ def obtener_categoria(total, criteria_dict):
     mejor_clave = "Sin categoría"
     mejor_desc = ""
     mejor_min = None
-
     for clave, info in categorias.items():
         min_pts = info.get("min_points", 0)
         if total >= min_pts and (mejor_min is None or min_pts > mejor_min):
             mejor_min = min_pts
             mejor_clave = clave
             mejor_desc = info.get("descripcion", "")
-
     return mejor_clave, mejor_desc
-
-# Flags default desde meta: "is" => IGNORECASE + DOTALL
-def get_default_regex_flags(criteria_dict) -> int:
-    flags_str = (criteria_dict.get("meta", {}) or {}).get("regex_flags_default", "is")
-    flags = 0
-    if "i" in flags_str.lower():
-        flags |= re.IGNORECASE
-    if "s" in flags_str.lower():
-        flags |= re.DOTALL
-    if "m" in flags_str.lower():
-        flags |= re.MULTILINE
-    return flags
-
-DEFAULT_RE_FLAGS = get_default_regex_flags(criteria)
-
-def match_count(pattern, text, flags=DEFAULT_RE_FLAGS):
-    if not pattern:
-        return 0
-    try:
-        return len(list(re.finditer(pattern, text, flags)))
-    except re.error:
-        # si el regex es inválido, no rompas toda la app
-        return 0
-
 
 # ==========================================================
 # 1) Recorte robusto de la sección "FORMACION ACADÉMICA"
@@ -128,11 +104,12 @@ FORMACION_HEADERS = [
 ]
 
 NEXT_SECTION_MARKERS = [
-    # RRHH: cortar antes para no mezclar
+    # cortar antes de RRHH
     r"\n\s*FORMACI[ÓO]N\s+DE\s+RECURSOS\s+HUMANOS\b",
     r"\n\s*RECURSOS\s+HUMANOS\b",
     r"\n\s*RRHH\b",
 
+    # otras secciones típicas
     r"\n\s*ANTECEDENTES\b",
     r"\n\s*PRODUCCI[ÓO]N\b",
     r"\n\s*PUBLICACIONES\b",
@@ -163,9 +140,8 @@ def extract_formacion_academica_block(full_text: str) -> str:
             end_idx = min(end_idx, m2.start())
     return tail[:end_idx].strip()
 
-
 # ==========================================================
-# 2) Parseo robusto por "inicio de título" + finalización
+# 2) Parseo por entradas + finalización
 # ==========================================================
 RE_IN_PROGRESS = re.compile(
     r"\b(Actualidad|En\s+curso|Cursando|Actualmente|Vigente|En\s+desarrollo|Hasta\s+la\s+actualidad|A\s+la\s+fecha)\b",
@@ -199,8 +175,7 @@ RE_BECARIO_CONTEXT = re.compile(
 
 RE_ENTRY_START = re.compile(
     r"^(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
-    r"Especializaci[oó]n|Especialista|Posdoctorado|Postdoctorado|"
-    r"Pos\s*graduad[oa]|Pos\s*grado|Posgrado|"
+    r"Especializaci[oó]n|Especialista|"
     r"Profesorado|Profesor\s+en|"
     r"Licenciatura|Licenciado/a|Licenciado|Licenciada|T[eé]cnica\s+Universitaria|Tecnicatura|"
     r"Contador|Contadora|Contadur[ií]a|"
@@ -208,16 +183,32 @@ RE_ENTRY_START = re.compile(
     re.IGNORECASE
 )
 
+# >>> POSDOC: conteo ultra estricto (no se mezcla con split_entries)
+RE_POSDOC_STRICT = re.compile(
+    r"(?ims)^"
+    r"(Posdoctorado|Postdoctorado)\b"            # debe iniciar la entrada
+    r"[\s\S]{0,900}?"                            # cuerpo acotado
+    r"(?:"                                      # evidencia requerida:
+        r"(UNIVERSIDAD|FACULTAD|INSTITUTO|CONICET|SEDE)"  # institución
+        r"|\".{3,220}?\""                        # o título entre comillas
+    r")"
+    r"[\s\S]{0,900}?"
+    r"(?:"                                      # y además fechas/rango/fin
+        r"A[nñ]o\s+de\s+(?:finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:"
+        r"|Situaci[oó]n\s+del\s+nivel\s*:\s*Completo"
+        r"|\b\d{2}/\d{4}\s*[-–—]\s*(?:\d{2}/\d{4}|Actualidad)\b"
+        r"|\b\d{4}\s*[-–—]\s*(?:\d{4}|Actualidad)\b"
+    r")",
+)
+
 def split_entries(block: str) -> list[str]:
     if not block:
         return []
-
     lines = [l.strip() for l in block.split("\n")]
     lines = [l for l in lines if l and l.lower() != "null"]
 
     entries = []
     buf = []
-
     for line in lines:
         if RE_ENTRY_START.search(line) and buf:
             entries.append("\n".join(buf).strip())
@@ -228,10 +219,11 @@ def split_entries(block: str) -> list[str]:
     if buf:
         entries.append("\n".join(buf).strip())
 
-    if len(entries) == 1 and len(entries[0]) > 1200:
+    # IMPORTANTE: eliminamos el fallback que parte por "Posdoctorado"
+    # porque genera falsos positivos en PDFs.
+    if len(entries) == 1 and len(entries[0]) > 1500:
         parts = re.split(
-            r"(?i)(?=Doctorado\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|"
-            r"T[eé]cnica\s+Universitaria\b|Tecnicatura\b|Profesorado\b|Posdoctorado\b|Postdoctorado\b)",
+            r"(?i)(?=Doctorado\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|T[eé]cnica\s+Universitaria\b|Tecnicatura\b|Profesorado\b)",
             entries[0]
         )
         entries = [p.strip() for p in parts if p.strip()]
@@ -274,7 +266,7 @@ def get_first_line_title(entry: str) -> str:
 def get_institution_hint(entry: str) -> str:
     lines = [l.strip() for l in entry.split("\n") if l.strip()]
     for l in lines[:10]:
-        if re.search(r"\b(UNIVERSIDAD|FACULTAD|INSTITUTO|SEDE)\b", l, re.IGNORECASE):
+        if re.search(r"\b(UNIVERSIDAD|FACULTAD|INSTITUTO|SEDE|CONICET)\b", l, re.IGNORECASE):
             return l
     return ""
 
@@ -292,23 +284,8 @@ def classify_entry(entry: str) -> str:
     if re.search(r"\bEspecializaci[oó]n\b|\bEspecialista\b", entry, re.IGNORECASE):
         return "especializacion"
 
-    # “Posgrado” no es título
     if re.search(r"\bPos\s*graduad[oa]\b|\bPos\s*grado\b|\bPosgrado\b", entry, re.IGNORECASE):
         return "otro"
-
-    # Posdoc SOLO si la PRIMERA línea es Posdoctorado/Postdoctorado
-    first = get_first_line_title(entry)
-    if re.match(r"^(Posdoctorado|Postdoctorado)\b", first, flags=re.IGNORECASE):
-        if RE_BECARIO_CONTEXT.search(entry):
-            return "otro"
-        # evidencia fuerte
-        tiene_evidencia = (
-            re.search(r"\".{3,}?\"", entry)
-            or RE_FINISH_YEAR.search(entry)
-            or RE_SITUACION_COMPLETO.search(entry)
-            or RE_RANGE.search(entry)
-        )
-        return "posdoc" if tiene_evidencia else "otro"
 
     if re.search(r"\bProfesorado\b|\bProfesor\s+en\b", entry, re.IGNORECASE):
         return "profesorado"
@@ -323,6 +300,30 @@ def classify_entry(entry: str) -> str:
 
     return "otro"
 
+def count_posdoc_strict(block: str) -> int:
+    """
+    Cuenta posdoctorados SOLO si hay entradas explícitas que:
+    - comiencen con Posdoctorado/Postdoctorado
+    - tengan institución o comillas
+    - y tengan fechas/rango/fin
+    Además excluye contexto RRHH/beca.
+    """
+    if not block:
+        return 0
+    matches = []
+    for m in RE_POSDOC_STRICT.finditer(block):
+        chunk = m.group(0)
+        if RE_BECARIO_CONTEXT.search(chunk):
+            continue
+        matches.append(chunk)
+
+    # dedup por texto normalizado (por si el PDF repite encabezados)
+    seen = set()
+    for x in matches:
+        k = norm_key(re.sub(r"\s+", " ", x)[:300])
+        seen.add(k)
+    return len(seen)
+
 def counts_from_formacion(block: str) -> dict:
     entries = split_entries(block)
     seen = set()
@@ -336,15 +337,15 @@ def counts_from_formacion(block: str) -> dict:
         "posdoc": 0,
     }
 
+    # POSDOC: conteo separado, ultra estricto
+    counts["posdoc"] = count_posdoc_strict(block)
+
     for e in entries:
         tipo = classify_entry(e)
-        if tipo not in counts:
+        if tipo not in counts or tipo == "posdoc":
             continue
 
         if not entry_is_completed(e):
-            continue
-
-        if tipo == "posdoc" and RE_BECARIO_CONTEXT.search(e):
             continue
 
         titulo = get_first_line_title(e)
@@ -359,7 +360,6 @@ def counts_from_formacion(block: str) -> dict:
         counts[tipo] += 1
 
     return counts
-
 
 # =========================
 # UI
@@ -377,19 +377,24 @@ if uploaded:
     raw_text = normalize_spaces(raw_text)
     st.success(f"Archivo cargado: {uploaded.name}")
 
-    with st.expander("Ver texto extraído (debug)"):
-        st.text_area("Texto", raw_text, height=240)
+    if DEBUG:
+        with st.expander("Ver texto extraído (debug)"):
+            st.text_area("Texto", raw_text, height=240)
 
     form_block = extract_formacion_academica_block(raw_text)
-    with st.expander("Ver sección de Formación académica (debug)"):
-        st.text_area("FORMACIÓN ACADÉMICA (recorte)", form_block if form_block else "[No se encontró la sección]", height=240)
 
-    with st.expander("Ver entradas detectadas en Formación (debug avanzado)"):
-        entries_dbg = split_entries(form_block)
-        st.write(f"Entradas detectadas: {len(entries_dbg)}")
-        for i, ent in enumerate(entries_dbg[:50], start=1):
-            st.markdown(f"**Entrada {i}** — tipo: `{classify_entry(ent)}` — finalizado: `{entry_is_completed(ent)}`")
-            st.code(ent[:1200])
+    if DEBUG:
+        with st.expander("Ver sección de Formación académica (debug)"):
+            st.text_area("FORMACIÓN ACADÉMICA (recorte)", form_block if form_block else "[No se encontró la sección]", height=240)
+
+        with st.expander("Ver entradas detectadas en Formación (debug avanzado)"):
+            entries_dbg = split_entries(form_block)
+            st.write(f"Entradas detectadas: {len(entries_dbg)}")
+            for i, ent in enumerate(entries_dbg[:50], start=1):
+                st.markdown(f"**Entrada {i}** — tipo: `{classify_entry(ent)}` — finalizado: `{entry_is_completed(ent)}`")
+                st.code(ent[:1200])
+
+            st.write(f"Posdoc (estricto) detectados: {count_posdoc_strict(form_block)}")
 
     form_counts = counts_from_formacion(form_block)
 
@@ -422,11 +427,10 @@ if uploaded:
                     c = form_counts.get("grado", 0)
                 elif "profesorado" in item_l or "docencia universitaria" in item_l:
                     c = form_counts.get("profesorado", 0)
-                # ✅ FIX CLAVE: esto ahora sí detecta posdoctorado/postdoctorado
-                elif re.search(r"\bposdoc\b|\bpostdoc\b|\bposdoctor\b|\bpostdoctor\b", item_l):
+                elif re.search(r"\bposdoc\b|\bpostdoc\b|\bposdoctorad\b|\bpostdoctorad\b", item_l):
                     c = form_counts.get("posdoc", 0)
 
-            # Bloqueo extra anti-contaminación fuera de Formación
+            # 🔒 Bloqueo extra: evitar contaminación de títulos en otras secciones
             if c is None:
                 item_l = item.lower()
                 es_titulo = bool(re.search(
@@ -438,7 +442,7 @@ if uploaded:
 
             # si no aplicó override/bloqueo -> regex global
             if c is None:
-                c = match_count(pattern, raw_text, flags=DEFAULT_RE_FLAGS)
+                c = match_count(pattern, raw_text)
 
             pts = clip(c * icfg.get("unit_points", 0), icfg.get("max_points", 0))
             rows.append({
