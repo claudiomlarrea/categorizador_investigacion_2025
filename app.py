@@ -12,14 +12,15 @@ except Exception:
     HAVE_PDF = False
 
 st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wide")
-st.title("Universidad Católica de Cuyo — Valorador de CV Docente/Investigador")
-st.caption("Exporta Excel y Word + categoría automática según puntaje total (criteria.json).")
+st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
+st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
+
 
 # =========================
 # Cargar criteria.json
 # =========================
 @st.cache_data(show_spinner=False)
-def load_json(path: str):
+def load_json(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -28,7 +29,7 @@ def load_json(path: str):
         st.info("Tip: revisá comillas, comas finales y backslashes en regex (en JSON deben ser \\\\).")
         st.stop()
     except FileNotFoundError:
-        st.error("No se encontró criteria.json en el repositorio (debe estar junto a app.py).")
+        st.error("No se encontró criteria.json en el repositorio (debe estar en la misma carpeta que app.py).")
         st.stop()
     except Exception as e:
         st.error(f"Error leyendo criteria.json: {e}")
@@ -36,10 +37,11 @@ def load_json(path: str):
 
 criteria = load_json("criteria.json")
 
+
 # =========================
 # Extracción de texto
 # =========================
-def extract_text_docx(file) -> str:
+def extract_text_docx(file):
     doc = DocxDocument(file)
     text = "\n".join(p.text for p in doc.paragraphs)
     for t in doc.tables:
@@ -47,7 +49,8 @@ def extract_text_docx(file) -> str:
             text += "\n" + " | ".join(c.text for c in row.cells)
     return text
 
-def extract_text_pdf(file) -> str:
+
+def extract_text_pdf(file):
     if not HAVE_PDF:
         raise RuntimeError("Falta pdfplumber. Agregalo en requirements.txt: pdfplumber")
     chunks = []
@@ -56,25 +59,38 @@ def extract_text_pdf(file) -> str:
             chunks.append(p.extract_text() or "")
     return "\n".join(chunks)
 
+
 # =========================
-# Normalización
+# Normalización de texto
 # =========================
 def normalize_text(text: str) -> str:
     if not text:
         return ""
+
+    # Unificar guiones típicos de PDF
     text = text.replace("\u2013", "-").replace("\u2014", "-").replace("\u2212", "-")
-    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)  # guionado por corte de línea
+
+    # Quitar guionado por salto de línea: "inves-\ntigación" -> "investigación"
+    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
+
+    # Normalizar saltos de línea
     text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Espacios
     text = re.sub(r"[ \t]+", " ", text)
+
+    # Compactar líneas vacías
     text = re.sub(r"\n{3,}", "\n\n", text)
+
     return text
+
 
 # =========================
 # Regex flags desde criteria.json
 # =========================
 def flags_from_meta(criteria_dict) -> int:
     meta = criteria_dict.get("meta", {})
-    f = meta.get("regex_flags_default", "is")
+    f = meta.get("regex_flags_default", "is")  # default: i + s
     flags = 0
     if "i" in f:
         flags |= re.IGNORECASE
@@ -84,11 +100,14 @@ def flags_from_meta(criteria_dict) -> int:
         flags |= re.MULTILINE
     return flags
 
+
 DEFAULT_FLAGS = flags_from_meta(criteria)
+
 
 @st.cache_data(show_spinner=False)
 def compile_pattern(pattern: str, flags: int):
     return re.compile(pattern, flags)
+
 
 def match_count(pattern: str, text: str) -> int:
     if not pattern:
@@ -97,8 +116,9 @@ def match_count(pattern: str, text: str) -> int:
         rx = compile_pattern(pattern, DEFAULT_FLAGS)
         return sum(1 for _ in rx.finditer(text))
     except re.error as e:
-        st.warning(f"Regex inválida: {e} | patrón: {pattern[:160]}...")
+        st.warning(f"Regex inválida: {e} | patrón: {pattern[:140]}...")
         return 0
+
 
 def clip(v, cap):
     if cap is None:
@@ -109,115 +129,194 @@ def clip(v, cap):
         return v
     return min(float(v), cap_val)
 
-# =========================
-# RECORTE POR SECCIÓN: “FORMACIÓN ACADÉMICA”
-# =========================
-SECTION_START_RX = re.compile(
-    r"(?im)^\s*(FORMACI[ÓO]N\s+ACAD[ÉE]MICA|FORMACION\s+ACADEMICA)\s*$"
-)
-# posibles encabezados siguientes del CVar (varían entre CVs)
-SECTION_END_RX = re.compile(
-    r"(?im)^\s*("
-    r"ANTECEDENTES|CARGOS|ACTIVIDADES|PRODUCCI[ÓO]N|PUBLICACIONES|"
-    r"FINANCIAMIENTO|PROYECTOS|EXTENSI[ÓO]N|EVALUACI[ÓO]N|"
-    r"PARTICIPACI[ÓO]N|IDIOMAS|FORMACI[ÓO]N\s+COMPLEMENTARIA|"
-    r"OTROS\s+ANTECEDENTES"
-    r")\b.*$"
-)
 
-def slice_formacion_academica(text: str) -> str:
+# =========================
+# Helper: recortar sección "Formación académica"
+# (evita contar "Doctorado" repetido en otras secciones)
+# =========================
+def slice_section(text: str, start_patterns, end_patterns, max_len_after=25000) -> str:
     """
-    Si encuentra el encabezado “FORMACIÓN ACADÉMICA”, recorta hasta el próximo gran encabezado.
-    Si no lo encuentra, devuelve el texto completo (fallback).
+    Busca el primer start_pattern; desde ahí corta hasta el primer end_pattern posterior.
+    Si no encuentra, devuelve texto completo.
     """
-    m = SECTION_START_RX.search(text)
-    if not m:
+    if not text:
+        return ""
+
+    start_idx = None
+    for sp in start_patterns:
+        m = re.search(sp, text, re.IGNORECASE)
+        if m:
+            start_idx = m.start()
+            break
+
+    if start_idx is None:
         return text
 
-    start = m.end()
-    tail = text[start:]
+    tail = text[start_idx:start_idx + max_len_after]
 
-    m_end = SECTION_END_RX.search(tail)
-    if m_end:
-        end = start + m_end.start()
-        return text[start:end].strip()
+    end_idx = None
+    for ep in end_patterns:
+        m2 = re.search(ep, tail, re.IGNORECASE)
+        if m2:
+            # cortar al inicio del heading siguiente (pero no al mismo heading inicial)
+            if m2.start() > 20:
+                end_idx = m2.start()
+                break
 
-    return tail.strip()
+    return tail[:end_idx] if end_idx else tail
+
 
 # =========================
-# Reglas de finalización (NO EN CURSO)
+# Detección robusta: "finalizado" vs "Actualidad"
 # =========================
-INPROGRESS_RX = re.compile(
-    r"(?i)\b(Actualidad|En\s+curso|Cursando|No\s+finalizad[oa]|Sin\s+finalizar|Incompleto|"
-    r"Doctorand[oa]|Maestrand[oa]|Especializand[oa]|Presente)\b"
-)
-# también detecta rangos tipo: "2018 - Actualidad"
-INPROGRESS_RANGE_RX = re.compile(r"(?i)\b(19|20)\d{2}\s*-\s*(Actualidad|Presente)\b")
-
-FINISH_RX = re.compile(
-    r"(?is)("
-    r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo|"
-    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:\d{2}/)?(?:19\d{2}|20\d{2})"
-    r")"
+IN_PROGRESS_RX = re.compile(
+    r"\bActualidad\b|\bEn curso\b|\bCursando\b|\bNo finalizad[oa]\b|\bSin finalizar\b",
+    re.IGNORECASE
 )
 
-# “Ancla global” para cortar bloques por título
-GLOBAL_ANCHOR_RX = re.compile(
-    r"(?i)\b("
-    r"Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|"
-    r"Maestr[ií]a|Mag[ií]ster|"
-    r"Especializaci[oó]n|Especialista|"
-    r"Licenciad[oa]\s+en|Licenciatura\s+en|"
-    r"T[eé]cnic[ao]\s+Universitari[ao]\s+en|Tecnicatura\s+en|"
-    r"Profesorado|Profesor\s+Universitari[oa]|Docente\s+Universitario|Profesor\s+en"
-    r")\b"
+FINALIZATION_RX = re.compile(
+    r"A[nñ]o de (finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(\d{2}/\d{4}|(19|20)\d{2})",
+    re.IGNORECASE
 )
 
-def get_local_block(text: str, start_idx: int, max_chars: int = 2200) -> str:
-    end_limit = min(len(text), start_idx + max_chars)
-    tail = text[start_idx:end_limit]
+SITUACION_COMPLETO_RX = re.compile(
+    r"Situaci[oó]n del nivel\s*:\s*Completo",
+    re.IGNORECASE
+)
 
-    m_next = GLOBAL_ANCHOR_RX.search(tail, pos=1)
-    if m_next:
-        tail = tail[:m_next.start()]
 
-    tail = re.sub(r"\bnull\b", " ", tail, flags=re.IGNORECASE)
-    tail = re.sub(r"[ \t]+", " ", tail)
-    return tail.strip()
+def block_around(text: str, idx: int, back: int = 250, forward: int = 900) -> str:
+    a = max(0, idx - back)
+    b = min(len(text), idx + forward)
+    return text[a:b]
 
-def has_completed_title_in(text_scope: str, title_anchor_regex: str) -> int:
+
+def extract_entry_block(text: str, idx: int, max_chars: int = 1200) -> str:
     """
-    Devuelve 1 si hay AL MENOS UN título finalizado dentro del scope (Formación Académica).
+    Intenta tomar el "bloque" de una titulación: desde idx hasta doble salto o hasta max_chars.
     """
-    rx_anchor = re.compile(title_anchor_regex, re.IGNORECASE)
-    for m in rx_anchor.finditer(text_scope):
-        block = get_local_block(text_scope, m.start(), max_chars=2400)
+    if not text:
+        return ""
+    start = max(0, idx - 50)
+    end = min(len(text), idx + max_chars)
+    chunk = text[start:end]
+    # cortar por doble salto si aparece
+    cut = re.search(r"\n\s*\n", chunk)
+    return chunk[:cut.start()] if cut else chunk
 
-        # En curso => NO puntúa
-        if INPROGRESS_RX.search(block) or INPROGRESS_RANGE_RX.search(block):
+
+def normalize_key(s: str) -> str:
+    s = s.lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def count_completed_by_keyword(text: str, keyword_rx: re.Pattern) -> int:
+    """
+    Cuenta titulaciones COMPLETAS:
+    - Debe existir "Año de finalización/obtención/graduación: MM/YYYY o YYYY"
+      o "Situación del nivel: Completo"
+    - Debe NO contener Actualidad/En curso/Cursando en el bloque de la entrada.
+    - Deduplica por (título + año) para evitar repetir conteos.
+    """
+    if not text:
+        return 0
+
+    seen = set()
+    count = 0
+
+    for m in keyword_rx.finditer(text):
+        entry = extract_entry_block(text, m.start())
+
+        # 1) si está "Actualidad / En curso / Cursando" en la misma entrada => NO cuenta
+        if IN_PROGRESS_RX.search(entry):
             continue
 
-        # Exigir evidencia de finalización
-        if FINISH_RX.search(block):
-            return 1
+        # 2) debe evidenciar finalización
+        has_final = FINALIZATION_RX.search(entry) or SITUACION_COMPLETO_RX.search(entry)
+        if not has_final:
+            continue
 
-    return 0
+        # 3) armar clave para deduplicar (título aproximado + año)
+        title_hint = entry.split("\n")[0][:120]
+        year = ""
+        mfy = FINALIZATION_RX.search(entry)
+        if mfy:
+            year = mfy.group(2)
+        key = normalize_key(f"{title_hint}::{year}")
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        count += 1
+
+    return count
+
+
+# Patrones de niveles (para formación)
+RX_DOCTORADO = re.compile(r"\bDoctorad[oa]\b|\bDoctor en\b|\bPh\.?\s?D\b", re.IGNORECASE)
+RX_MAESTRIA = re.compile(r"\bMaestr[ií]a\b|\bMag[ií]ster\b", re.IGNORECASE)
+RX_ESPECIALIZACION = re.compile(r"\bEspecializaci[oó]n\b|\bEspecialista\b", re.IGNORECASE)
+RX_PROFESORADO = re.compile(r"\bProfesorado\b|\bProfesor en\b|\bDocencia universitaria\b", re.IGNORECASE)
+
+# Grado (incluye "Contadora Pública", "Licenciado...", "Técnica Universitaria...", etc.)
+RX_GRADO = re.compile(
+    r"\bLicenciad[oa]\b|"
+    r"\bContador(?:a)?\b|\bContador(?:a)? P[úu]blic[oa]\b|"
+    r"\bAbogad[oa]\b|"
+    r"\bIngenier[oa]\b|"
+    r"\bM[eé]dic[oa]\b|"
+    r"\bBioqu[ií]mic[oa]\b|"
+    r"\bFarmac[eé]utic[oa]\b|"
+    r"\bOdont[oó]log[oa]\b|"
+    r"\bPsic[oó]log[oa]\b|"
+    r"\bArquitect[oa]\b|"
+    r"\bVeterinar[ioia]\b|"
+    r"\bKinesi[oó]log[oa]\b|"
+    r"\bNutricionist[ao]\b|"
+    r"\bT[eé]cnic[oa]\s+Universitari[ao]\b",
+    re.IGNORECASE
+)
+
+# Posdoctorado: se acepta "en curso o finalizado"
+RX_POSDOC = re.compile(r"\bPosdoctorad[oa]\b|\bPostdoctorad[oa]\b|\bPostdoc\b", re.IGNORECASE)
+
+
+def count_posdoc_any(text: str) -> int:
+    if not text:
+        return 0
+    # Deduplicación suave por bloque
+    seen = set()
+    c = 0
+    for m in RX_POSDOC.finditer(text):
+        entry = extract_entry_block(text, m.start())
+        key = normalize_key(entry[:200])
+        if key in seen:
+            continue
+        seen.add(key)
+        c += 1
+    return c
+
 
 # =========================
-# Categorización por puntaje (criteria.json)
+# Categorización por puntaje
 # =========================
-def obtener_categoria(total: float, criteria_dict):
+def obtener_categoria(total, criteria_dict):
     categorias = criteria_dict.get("categorias", {})
     mejor_clave = "Sin categoría"
     mejor_desc = ""
     mejor_min = None
+
     for clave, info in categorias.items():
-        min_pts = float(info.get("min_points", 0) or 0)
+        min_pts = info.get("min_points", 0)
         if total >= min_pts and (mejor_min is None or min_pts > mejor_min):
             mejor_min = min_pts
             mejor_clave = clave
             mejor_desc = info.get("descripcion", "")
+
     return mejor_clave, mejor_desc
+
 
 # =========================
 # UI
@@ -235,12 +334,32 @@ if uploaded:
 
     st.success(f"Archivo cargado: {uploaded.name}")
 
-    # scope exclusivo para Formación Académica
-    formacion_scope = slice_formacion_academica(raw_text)
-
     with st.expander("Ver texto extraído (debug)"):
-        st.text_area("Texto completo", raw_text, height=220)
-        st.text_area("Scope Formación Académica (debug)", formacion_scope, height=220)
+        st.text_area("Texto", raw_text, height=240)
+
+    # Texto específico para "Formación académica" (reduce falsos positivos)
+    formacion_text = slice_section(
+        raw_text,
+        start_patterns=[
+            r"\bFORMACI[ÓO]N ACAD[ÉE]MICA\b",
+            r"\bFormaci[óo]n acad[ée]mica\b",
+            r"\bFORMACION ACADEMICA\b",
+        ],
+        end_patterns=[
+            r"\bCARGOS\b",
+            r"\bANTECEDENTES\b",
+            r"\bPRODUCCI[ÓO]N\b",
+            r"\bPUBLICACIONES\b",
+            r"\bFINANCIAMIENTO\b",
+            r"\bPROYECTOS\b",
+            r"\bEXTENSI[ÓO]N\b",
+            r"\bEVALUACI[ÓO]N\b",
+        ],
+        max_len_after=30000
+    )
+
+    with st.expander("Ver sección de Formación académica (debug)"):
+        st.text_area("Formación académica (recorte)", formacion_text, height=220)
 
     results = {}
     total = 0.0
@@ -253,46 +372,31 @@ if uploaded:
         rows = []
         subtotal_raw = 0.0
 
+        section_name = (section or "").strip().lower()
+        is_formacion = section_name.startswith("formación académica") or section_name.startswith("formacion academica")
+
         items = cfg.get("items", {})
         for item, icfg in items.items():
+            item_name = (item or "").strip().lower()
             pattern = icfg.get("pattern", "")
             unit = float(icfg.get("unit_points", 0) or 0)
             item_cap = float(icfg.get("max_points", 0) or 0)
 
-            # --- REGLAS ESPECIALES: títulos estructurales ---
-            if section == "Formación académica y complementaria":
-                if item == "Doctorado (finalizado)":
-                    c = has_completed_title_in(
-                        formacion_scope,
-                        r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b"
-                    )
-
-                elif item == "Maestría (finalizada)":
-                    c = has_completed_title_in(formacion_scope, r"\b(Maestr[ií]a|Mag[ií]ster)\b")
-
-                elif item == "Especialización (finalizada)":
-                    c = has_completed_title_in(formacion_scope, r"\b(Especializaci[oó]n|Especialista)\b")
-
-                elif item == "Título de grado (finalizado)":
-                    # Vinader: “LICENCIADO EN …” + “Año de finalización: 03/2000”
-                    c = has_completed_title_in(
-                        formacion_scope,
-                        r"\b("
-                        r"Licenciad[oa]\s+en|Licenciatura\s+en|"
-                        r"T[eé]cnic[ao]\s+Universitari[ao]\s+en|Tecnicatura\s+en"
-                        r")\b"
-                    )
-
-                elif item == "Profesorado/Docencia universitaria (finalizado)":
-                    c = has_completed_title_in(
-                        formacion_scope,
-                        r"\b(Profesorado|Profesor\s+Universitari[oa]|Docente\s+Universitario|Profesor\s+en)\b"
-                    )
-
-                else:
-                    # el resto usa criteria.json sobre el texto completo
-                    c = match_count(pattern, raw_text)
+            # ---- Overrides SOLO para la sección de Formación (evita romper lo demás)
+            if is_formacion and "doctorado" in item_name and "final" in item_name:
+                c = count_completed_by_keyword(formacion_text, RX_DOCTORADO)
+            elif is_formacion and ("maestr" in item_name or "magíster" in item_name or "magister" in item_name) and "final" in item_name:
+                c = count_completed_by_keyword(formacion_text, RX_MAESTRIA)
+            elif is_formacion and ("especializ" in item_name or "especialista" in item_name) and "final" in item_name:
+                c = count_completed_by_keyword(formacion_text, RX_ESPECIALIZACION)
+            elif is_formacion and ("título de grado" in item_name or "titulo de grado" in item_name) and "final" in item_name:
+                c = count_completed_by_keyword(formacion_text, RX_GRADO)
+            elif is_formacion and ("profesor" in item_name or "docencia universitaria" in item_name) and "final" in item_name:
+                c = count_completed_by_keyword(formacion_text, RX_PROFESORADO)
+            elif is_formacion and ("posdoctor" in item_name or "postdoctor" in item_name):
+                c = count_posdoc_any(formacion_text)
             else:
+                # ---- Default: usa criteria.json
                 c = match_count(pattern, raw_text)
 
             pts_raw = c * unit
@@ -300,10 +404,11 @@ if uploaded:
 
             rows.append({
                 "Ítem": item,
-                "Ocurrencias": int(c),
+                "Ocurrencias": c,
                 "Puntaje (tope ítem)": float(pts),
-                "Tope ítem": float(item_cap)
+                "Tope ítem": float(item_cap),
             })
+
             subtotal_raw += float(pts)
 
         df = pd.DataFrame(rows)
@@ -326,6 +431,7 @@ if uploaded:
     st.subheader("Puntaje total y categoría")
     st.metric("Total acumulado", f"{total:.1f}")
     st.metric("Categoría alcanzada", categoria_label)
+
     if desc_cat:
         st.info(f"Descripción de la categoría: {desc_cat}")
 
@@ -339,7 +445,8 @@ if uploaded:
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
-            data["df"].to_excel(writer, sheet_name=sec[:31], index=False)
+            sheet = (sec[:31] if sec else "SECCION")  # <=31
+            data["df"].to_excel(writer, sheet_name=sheet, index=False)
 
         resumen = pd.DataFrame({
             "Sección": list(results.keys()),
