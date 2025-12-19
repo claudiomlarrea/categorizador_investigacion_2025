@@ -95,7 +95,6 @@ FORMACION_HEADERS = [
     r"FORMACI[ÓO]N\s+ACAD[ÉE]MICA",
 ]
 
-# Cortes probables (siguiente sección). Preferimos MAYÚSCULAS típicas.
 NEXT_SECTION_MARKERS = [
     r"\n\s*ANTECEDENTES\b",
     r"\n\s*PRODUCCI[ÓO]N\b",
@@ -110,7 +109,6 @@ NEXT_SECTION_MARKERS = [
 
 def extract_formacion_academica_block(full_text: str) -> str:
     txt = normalize_spaces(full_text)
-    # buscar el primer header de formación
     start_idx = None
     for h in FORMACION_HEADERS:
         m = re.search(h, txt, flags=re.IGNORECASE)
@@ -121,20 +119,17 @@ def extract_formacion_academica_block(full_text: str) -> str:
         return ""
 
     tail = txt[start_idx:]
-    # cortar en el primer marcador de siguiente sección
     end_idx = len(tail)
     for mk in NEXT_SECTION_MARKERS:
         m2 = re.search(mk, tail, flags=re.IGNORECASE)
         if m2:
             end_idx = min(end_idx, m2.start())
-    block = tail[:end_idx].strip()
-    return block
+    return tail[:end_idx].strip()
 
 
 # ==========================================================
-# 2) Parseo de entradas y reglas "finalizado vs en curso"
+# 2) Parseo robusto por "inicio de título" + finalización
 # ==========================================================
-# Mejorado: incluye "Hasta la actualidad" y guiones -, – y —
 RE_IN_PROGRESS = re.compile(
     r"\b(Actualidad|En\s+curso|Cursando|Actualmente|Vigente|En\s+desarrollo|Hasta\s+la\s+actualidad|A\s+la\s+fecha)\b",
     re.IGNORECASE
@@ -155,28 +150,75 @@ RE_SITUACION_COMPLETO = re.compile(
     re.IGNORECASE
 )
 
+# Rango tipo 2003 - 2010 o 03/2003 - 12/2010 (con guiones -, – o —)
+RE_RANGE = re.compile(
+    r"\b([0-3]?\d/\d{4}|\d{4})\s*([\-–—])\s*([0-3]?\d/\d{4}|\d{4}|Actualidad)\b",
+    re.IGNORECASE
+)
+
+# Detecta líneas que suelen iniciar una "entrada" de título
+RE_ENTRY_START = re.compile(
+    r"^(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
+    r"Especializaci[oó]n|Especialista|Posdoctorado|Postdoctorado|Profesorado|Profesor\s+en|"
+    r"Licenciatura|Licenciado/a|Licenciado|Licenciada|Contador|Contadora|Contadur[ií]a|"
+    r"Abogado|Abogada|Ingenier|Bioqu[ií]mic|M[eé]dic|Farmac[eé]utic|Arquitect|Odont[oó]log)\b",
+    re.IGNORECASE
+)
+
 def split_entries(block: str) -> list[str]:
+    """
+    Split robusto:
+    - En PDFs, los dobles saltos pueden no existir.
+    - Se segmenta cuando una línea parece iniciar un título.
+    """
     if not block:
         return []
-    # separar por doble salto (en CVAR suele haber “bloques”)
-    parts = re.split(r"\n\s*\n", block)
+
+    lines = [l.strip() for l in block.split("\n")]
+    lines = [l for l in lines if l and l.lower() != "null"]
+
     entries = []
-    for p in parts:
-        p = p.strip()
-        if len(p) < 3:
-            continue
-        entries.append(p)
+    buf = []
+
+    for line in lines:
+        # Si esta línea parece inicio de una nueva entrada y ya hay buffer -> cortar
+        if RE_ENTRY_START.search(line) and buf:
+            entries.append("\n".join(buf).strip())
+            buf = [line]
+        else:
+            buf.append(line)
+
+    if buf:
+        entries.append("\n".join(buf).strip())
+
+    # Fallback: si por algún motivo quedó 1 solo bloque gigante,
+    # intenta dividir también por " - " con palabras clave (suave)
+    if len(entries) == 1 and len(entries[0]) > 1200:
+        parts = re.split(r"(?i)(?=Doctorado\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|Profesorado\b|Posdoctorado\b|Postdoctorado\b)", entries[0])
+        entries = [p.strip() for p in parts if p.strip()]
+
     return entries
+
+def has_completed_range(entry: str) -> bool:
+    """
+    True si hay rango YYYY-YYYY o MM/YYYY-MM/YYYY y el final NO es Actualidad.
+    """
+    for m in RE_RANGE.finditer(entry):
+        end = (m.group(3) or "").strip().lower()
+        if end != "actualidad":
+            return True
+    return False
 
 def entry_is_completed(entry: str) -> bool:
     """
-    Regla robusta:
-    1) Si hay evidencia explícita de finalización => puntúa SIEMPRE
-       (aunque exista "Actualidad" en otro renglón).
-    2) Si NO hay evidencia de finalización y aparece "Actualidad/en curso" => NO puntúa
-    3) Si no hay evidencia explícita => NO puntúa (criterio conservador)
+    Finalizado si:
+    - Año de finalización/obtención/graduación
+    - o Situación del nivel: Completo
+    - o rango YYYY-YYYY / MM/YYYY-MM/YYYY sin "Actualidad"
+    En curso si:
+    - Actualidad / En curso / Cursando / ... y no hay evidencia explícita de finalización
     """
-    if RE_FINISH_YEAR.search(entry) or RE_SITUACION_COMPLETO.search(entry):
+    if RE_FINISH_YEAR.search(entry) or RE_SITUACION_COMPLETO.search(entry) or has_completed_range(entry):
         return True
 
     if RE_IN_PROGRESS.search(entry) or RE_ENDS_WITH_ACTUALIDAD.search(entry):
@@ -190,10 +232,13 @@ def get_finish_token(entry: str) -> str:
         return m.group(2).strip()
     if RE_SITUACION_COMPLETO.search(entry):
         return "COMPLETO"
+    # si no hay “Año de finalización”, usa el end del rango si existe
+    m2 = RE_RANGE.search(entry)
+    if m2:
+        return (m2.group(3) or "").strip()
     return ""
 
 def get_first_line_title(entry: str) -> str:
-    # primera línea “significativa” (sin null)
     lines = [l.strip() for l in entry.split("\n") if l.strip()]
     for l in lines:
         if l.lower() == "null":
@@ -222,19 +267,19 @@ def classify_entry(entry: str) -> str:
     if re.search(r"\bProfesorado\b|\bProfesor\s+en\b", entry, re.IGNORECASE):
         return "profesorado"
 
-    # Grado (conservador): solo si trae evidencia explícita de finalización
-    if RE_FINISH_YEAR.search(entry) or RE_SITUACION_COMPLETO.search(entry):
+    # Grado: si contiene señales típicas de grado (y no fue clasificado como posgrado)
+    if re.search(r"\b(Licenciatura|Licenciado/a|Licenciado|Licenciada|Contador|Contadora|Contadur[ií]a|Abogado|Abogada|Ingenier|Bioqu[ií]mic|M[eé]dic|Farmac[eé]utic|Arquitect|Odont[oó]log)\b", entry, re.IGNORECASE):
         return "grado"
 
     return "otro"
 
 def counts_from_formacion(block: str) -> dict:
     """
-    Devuelve conteos robustos SOLO de formación académica.
-    - Posgrados puntúan SOLO si entry_is_completed(entry)
-    - Grado puntúa SOLO si entry_is_completed(entry)
-    - Profesorado puntúa SOLO si entry_is_completed(entry)
-    - Dedup por (tipo, titulo_normalizado, fin_token)
+    Conteos robustos SOLO de formación académica.
+    Puntúa SOLO finalizados:
+    - doctorado/maestría/especialización/grado/profesorado: requieren entry_is_completed=True
+    - posdoc: se cuenta si aparece (si querés exigir finalización, lo cambiamos)
+    Dedup por (tipo, titulo_normalizado, fin_token)
     """
     entries = split_entries(block)
     seen = set()
@@ -260,13 +305,12 @@ def counts_from_formacion(block: str) -> dict:
         if key in seen:
             continue
 
-        # Reglas de completitud
         if tipo in ("doctorado", "maestria", "especializacion", "grado", "profesorado"):
             if not entry_is_completed(e):
                 continue
 
-        # posdoc: por defecto lo contamos si aparece (si querés exigir finalización, decímelo)
-        # Para evitar que puntúe posdoc en curso, podés descomentar esta línea:
+        # posdoc: por defecto cuenta si aparece
+        # Para exigir finalización, descomentá:
         # if tipo == "posdoc" and not entry_is_completed(e): continue
 
         seen.add(key)
@@ -289,17 +333,22 @@ if uploaded:
         st.stop()
 
     raw_text = normalize_spaces(raw_text)
-
     st.success(f"Archivo cargado: {uploaded.name}")
 
-    # Debug general
     with st.expander("Ver texto extraído (debug)"):
         st.text_area("Texto", raw_text, height=240)
 
-    # Debug de formación
     form_block = extract_formacion_academica_block(raw_text)
     with st.expander("Ver sección de Formación académica (debug)"):
         st.text_area("FORMACIÓN ACADÉMICA (recorte)", form_block if form_block else "[No se encontró la sección]", height=240)
+
+    # Debug extra: ver entradas detectadas (clave para resolver los “pegados”)
+    with st.expander("Ver entradas detectadas en Formación (debug avanzado)"):
+        entries_dbg = split_entries(form_block)
+        st.write(f"Entradas detectadas: {len(entries_dbg)}")
+        for i, ent in enumerate(entries_dbg[:50], start=1):
+            st.markdown(f"**Entrada {i}** — tipo: `{classify_entry(ent)}` — finalizado: `{entry_is_completed(ent)}`")
+            st.code(ent[:1200])
 
     form_counts = counts_from_formacion(form_block)
 
@@ -316,37 +365,26 @@ if uploaded:
 
         for item, icfg in cfg.get("items", {}).items():
             pattern = icfg.get("pattern", "")
-
-            # --- Overrides robustos SOLO para la sección de Formación ---
             c = None
+
+            # Overrides SOLO para Formación académica y complementaria
             if section.lower().startswith("formación académica"):
                 item_l = item.lower()
 
-                # doctorado finalizado
                 if "doctorado" in item_l:
                     c = form_counts.get("doctorado", 0)
-
-                # maestría finalizada
                 elif "maestr" in item_l or "magíster" in item_l or "magister" in item_l:
                     c = form_counts.get("maestria", 0)
-
-                # especialización finalizada
                 elif "especializ" in item_l or "especialista" in item_l:
                     c = form_counts.get("especializacion", 0)
-
-                # título de grado finalizado
-                elif "título de grado" in item_l or "titulo de grado" in item_l or "grado" == item_l.strip():
+                elif "título de grado" in item_l or "titulo de grado" in item_l or item_l.strip() == "grado":
                     c = form_counts.get("grado", 0)
-
-                # profesorado
                 elif "profesorado" in item_l or "docencia universitaria" in item_l:
                     c = form_counts.get("profesorado", 0)
-
-                # posdoc
                 elif "posdoctorado" in item_l or "postdoctorado" in item_l:
                     c = form_counts.get("posdoc", 0)
 
-            # si no aplicó override -> lógica original por regex global
+            # si no aplicó override -> regex global
             if c is None:
                 c = match_count(pattern, raw_text)
 
