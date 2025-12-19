@@ -1,5 +1,5 @@
 import streamlit as st
-import re, json, io, unicodedata
+import re, json, io
 import pandas as pd
 from docx import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -11,18 +11,10 @@ try:
 except Exception:
     HAVE_PDF = False
 
-
-# =========================
-# Config
-# =========================
 st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wide")
 st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
 st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
 
-
-# =========================
-# Cargar criteria.json
-# =========================
 @st.cache_data(show_spinner=False)
 def load_json(path):
     try:
@@ -53,7 +45,6 @@ def extract_text_docx(file):
             text += "\n" + " | ".join(c.text for c in row.cells)
     return text
 
-
 def extract_text_pdf(file):
     if not HAVE_PDF:
         raise RuntimeError("Falta pdfplumber. Agregalo en requirements.txt: pdfplumber")
@@ -65,86 +56,20 @@ def extract_text_pdf(file):
 
 
 # =========================
-# Normalización (CLAVE)
+# Helpers
 # =========================
-def normalize_text(text: str) -> str:
-    if not text:
-        return ""
-
-    # Unificar guiones típicos de PDF
-    text = text.replace("\u2013", "-").replace("\u2014", "-").replace("\u2212", "-")
-
-    # Quitar guionado por salto de línea: "inves-\ntigación" -> "investigación"
-    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
-
-    # Normalizar saltos de línea
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-
-    # Espacios
-    text = re.sub(r"[ \t]+", " ", text)
-
-    # Compactar líneas vacías
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    return text
-
-
-def fold(s: str) -> str:
-    """Lower + sin tildes para comparar robusto."""
-    if s is None:
-        return ""
-    s = unicodedata.normalize("NFD", s)
-    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
-    return s.lower()
-
-
-# =========================
-# Regex flags desde criteria.json
-# =========================
-def flags_from_meta(criteria_dict) -> int:
-    meta = criteria_dict.get("meta", {})
-    f = meta.get("regex_flags_default", "is")  # default: i + s
-    flags = 0
-    if "i" in f:
-        flags |= re.IGNORECASE
-    if "s" in f:
-        flags |= re.DOTALL
-    if "m" in f:
-        flags |= re.MULTILINE
-    return flags
-
-DEFAULT_FLAGS = flags_from_meta(criteria)
-
-
-@st.cache_data(show_spinner=False)
-def compile_pattern(pattern: str, flags: int):
-    return re.compile(pattern, flags)
-
-
-def match_count(pattern: str, text: str) -> int:
-    if not pattern:
-        return 0
-    try:
-        rx = compile_pattern(pattern, DEFAULT_FLAGS)
-        return sum(1 for _ in rx.finditer(text))
-    except re.error as e:
-        st.warning(f"Regex inválida: {e} | patrón: {pattern[:120]}...")
-        return 0
-
+def match_count(pattern, text):
+    return len(re.findall(pattern, text, re.IGNORECASE)) if pattern else 0
 
 def clip(v, cap):
-    if cap is None:
-        return v
-    try:
-        cap_val = float(cap)
-    except Exception:
-        return v
-    return min(v, cap_val)
+    return min(v, cap) if cap else v
 
+def normalize_spaces(s: str) -> str:
+    s = s.replace("\u00A0", " ")
+    s = re.sub(r"[ \t]+", " ", s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    return s.strip()
 
-# =========================
-# Categoría según puntaje
-# =========================
 def obtener_categoria(total, criteria_dict):
     categorias = criteria_dict.get("categorias", {})
     mejor_clave = "Sin categoría"
@@ -161,324 +86,289 @@ def obtener_categoria(total, criteria_dict):
     return mejor_clave, mejor_desc
 
 
-# =========================================================
-# 1) EXTRAER BLOQUE "FORMACION ACADEMICA" (robusto)
-# =========================================================
-def extract_formacion_academica_block(text: str) -> str:
-    """
-    Extrae el bloque desde 'FORMACION ACADEMICA' (con o sin tildes)
-    hasta el próximo encabezado fuerte (todo mayúsculas) o el final.
-    """
-    t = text or ""
-    tf = fold(t)
+# ==========================================================
+# 1) Recorte robusto de la sección "FORMACION ACADÉMICA"
+# ==========================================================
+FORMACION_HEADERS = [
+    r"FORMACI[ÓO]N ACAD[ÉE]MICA",
+    r"FORMACION ACADEMICA",
+    r"FORMACI[ÓO]N\s+ACAD[ÉE]MICA",
+]
 
-    # localizar inicio
-    m = re.search(r"\bformacion academica\b", tf)
-    if not m:
+# Cortes probables (siguiente sección). Preferimos MAYÚSCULAS típicas.
+NEXT_SECTION_MARKERS = [
+    r"\n\s*ANTECEDENTES\b",
+    r"\n\s*PRODUCCI[ÓO]N\b",
+    r"\n\s*PUBLICACIONES\b",
+    r"\n\s*ACTIVIDADES\b",
+    r"\n\s*EXPERIENCIA\b",
+    r"\n\s*CARGOS\b",
+    r"\n\s*FORMACI[ÓO]N COMPLEMENTARIA\b",
+    r"\n\s*CURSOS\b",
+    r"\n\s*IDIOMAS\b",
+]
+
+def extract_formacion_academica_block(full_text: str) -> str:
+    txt = normalize_spaces(full_text)
+    # buscar el primer header de formación
+    start_idx = None
+    for h in FORMACION_HEADERS:
+        m = re.search(h, txt, flags=re.IGNORECASE)
+        if m:
+            start_idx = m.end()
+            break
+    if start_idx is None:
         return ""
 
-    start = m.start()
-    # desde allí, tomamos el substring original equivalente
-    sub = t[start:]
-
-    # cortar cuando aparece un encabezado en mayúsculas típico (otra sección)
-    # (en PDFs suele venir en mayúsculas y con saltos)
-    cut = re.search(
-        r"\n\s*[A-ZÁÉÍÓÚÑÜ]{6,}(?:\s+[A-ZÁÉÍÓÚÑÜ]{3,})*\s*\n",
-        sub
-    )
-    if cut:
-        return sub[:cut.start()].strip()
-
-    return sub.strip()
+    tail = txt[start_idx:]
+    # cortar en el primer marcador de siguiente sección
+    end_idx = len(tail)
+    for mk in NEXT_SECTION_MARKERS:
+        m2 = re.search(mk, tail, flags=re.IGNORECASE)
+        if m2:
+            end_idx = min(end_idx, m2.start())
+    block = tail[:end_idx].strip()
+    return block
 
 
-# =========================================================
-# 2) PARSEAR ENTRADAS DE FORMACIÓN Y CLASIFICAR
-# =========================================================
-FINAL_LABEL_RX = re.compile(
-    r"(anio|año)\s+de\s+(finalizacion|finalización|obtencion|obtención|graduacion|graduación)\s*:\s*([0-3]?\d/[01]?\d/(?:19|20)\d{2}|[01]?\d/(?:19|20)\d{2}|(?:19|20)\d{2})",
+# ==========================================================
+# 2) Parseo de entradas y reglas "finalizado vs en curso"
+# ==========================================================
+RE_IN_PROGRESS = re.compile(
+    r"\b(Actualidad|En\s+curso|Cursando|En\s+desarrollo|Vigente|Actualmente)\b",
     re.IGNORECASE
 )
 
-RANGO_CERRADO_RX = re.compile(
-    r"(?:(?:0?[1-9]|1[0-2])/(?:19|20)\d{2}|(?:19|20)\d{2})\s*-\s*(?:(?:0?[1-9]|1[0-2])/(?:19|20)\d{2}|(?:19|20)\d{2})",
+RE_ENDS_WITH_ACTUALIDAD = re.compile(
+    r"(\d{2}/\d{4}|\d{4})\s*-\s*Actualidad\b",
     re.IGNORECASE
 )
 
-RANGO_ACTUALIDAD_RX = re.compile(
-    r"(?:(?:0?[1-9]|1[0-2])/(?:19|20)\d{2}|(?:19|20)\d{2})\s*-\s*actualidad\b",
+RE_FINISH_YEAR = re.compile(
+    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*([0-3]?\d/\d{4}|\d{4})",
     re.IGNORECASE
 )
 
-EN_CURSO_RX = re.compile(r"\b(actualidad|en curso|cursando)\b", re.IGNORECASE)
+RE_SITUACION_COMPLETO = re.compile(
+    r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo",
+    re.IGNORECASE
+)
 
-
+# “Título”/denominación en CVar: suele ir primera línea del bloque
 def split_entries(block: str) -> list[str]:
-    # separa por líneas en blanco, pero conserva entradas aunque vengan “pegadas”
-    parts = [p.strip() for p in re.split(r"\n\s*\n", block) if p.strip()]
-    return parts
+    if not block:
+        return []
+    # separar por doble salto (en CVAR suele haber “bloques”)
+    parts = re.split(r"\n\s*\n", block)
+    entries = []
+    for p in parts:
+        p = p.strip()
+        if len(p) < 3:
+            continue
+        entries.append(p)
+    return entries
 
-
-def entry_title_line(entry: str) -> str:
-    # primera línea “real”
-    for ln in entry.split("\n"):
-        ln2 = ln.strip()
-        if ln2:
-            return ln2
-    return entry.strip()[:80]
-
-
-def is_in_course(entry: str) -> bool:
-    if EN_CURSO_RX.search(entry):
-        return True
-    if RANGO_ACTUALIDAD_RX.search(entry):
-        return True
-    return False
-
-
-def is_finalized(entry: str) -> bool:
-    """
-    Regla FINALIZADO:
-    - NO debe estar en curso/Actualidad
-    - y debe tener:
-      a) "Año de finalización/obtención/graduación: ...", o
-      b) rango cerrado "YYYY - YYYY" / "MM/YYYY - MM/YYYY" (sin Actualidad)
-    """
-    if is_in_course(entry):
+def entry_is_completed(entry: str) -> bool:
+    # Si hay cualquier indicador claro de “en curso”, NO puntúa
+    if RE_IN_PROGRESS.search(entry) or RE_ENDS_WITH_ACTUALIDAD.search(entry):
         return False
-    if FINAL_LABEL_RX.search(entry):
-        return True
-    if RANGO_CERRADO_RX.search(entry) and not RANGO_ACTUALIDAD_RX.search(entry):
+    # Para puntuar: debe tener año/mes-año de finalización u “Situación: Completo”
+    if RE_FINISH_YEAR.search(entry) or RE_SITUACION_COMPLETO.search(entry):
         return True
     return False
 
+def get_finish_token(entry: str) -> str:
+    m = RE_FINISH_YEAR.search(entry)
+    if m:
+        return m.group(2).strip()
+    if RE_SITUACION_COMPLETO.search(entry):
+        return "COMPLETO"
+    return ""
 
-def classify_entry(entry: str) -> str | None:
-    """
-    Devuelve tipo: doctorado|maestria|especializacion|posdoc|profesorado|grado|otros|None
-    """
-    ef = fold(entry)
+def get_first_line_title(entry: str) -> str:
+    # primera línea “significativa” (sin null)
+    lines = [l.strip() for l in entry.split("\n") if l.strip()]
+    for l in lines:
+        if l.lower() == "null":
+            continue
+        return l
+    return (lines[0] if lines else "").strip()
 
-    # posdoc
-    if "posdoctor" in ef or "postdoctor" in ef:
+def norm_key(s: str) -> str:
+    s = s.lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"[\"'`´]", "", s)
+    return s
+
+def classify_entry(entry: str) -> str:
+    # Posgrados primero
+    if re.search(r"\bDoctorado\b|\bDoctor\s+en\b|\bDoctor\s+de\s+la\s+Universidad\b", entry, re.IGNORECASE):
+        return "doctorado"
+    if re.search(r"\bMaestr[ií]a\b|\bMag[ií]ster\b", entry, re.IGNORECASE):
+        return "maestria"
+    if re.search(r"\bEspecializaci[oó]n\b|\bEspecialista\b", entry, re.IGNORECASE):
+        return "especializacion"
+    if re.search(r"\bPosdoctorado\b|\bPostdoctorado\b", entry, re.IGNORECASE):
         return "posdoc"
 
-    # doctorado
-    if re.search(r"\bdoctorad", ef) or re.search(r"\bdoctor\b", ef):
-        # ojo: "doctor" puede aparecer en otro contexto, pero en FORMACIÓN suele ser título
-        return "doctorado"
-
-    # maestría
-    if "maestr" in ef or "magister" in ef or "máster" in ef or "master" in ef:
-        return "maestria"
-
-    # especialización / especialista
-    if "especializ" in ef or "especialista" in ef:
-        return "especializacion"
-
-    # profesorado (como título de grado/uni)
-    if "profesorado" in ef or re.search(r"\bprofesor\s+en\b", ef):
+    # Profesorado universitario
+    if re.search(r"\bProfesorado\b|\bProfesor\s+en\b", entry, re.IGNORECASE):
         return "profesorado"
 
-    # grado: heurística fuerte (Farah/Young/Vinader)
-    # Si hay "Año de finalización" y NO es posgrado, casi seguro es grado/tecnicatura
-    if FINAL_LABEL_RX.search(entry):
-        # tecnicaturas / títulos de grado típicos
-        if re.search(r"\b(tecnic|tecnica|tecnico)\s+universitari", ef):
-            return "grado"
-        if re.search(r"\blicenci", ef):
-            return "grado"
-        if re.search(r"\bcontador(a)?\b", ef):
-            return "grado"
-        if re.search(r"\babogad", ef):
-            return "grado"
-        if re.search(r"\bingenier", ef):
-            return "grado"
-        if re.search(r"\bmedic", ef) or re.search(r"\bodontolog", ef) or re.search(r"\bbioquim", ef):
-            return "grado"
-        if re.search(r"\bfarmac", ef) or re.search(r"\barquitect", ef):
-            return "grado"
-        # fallback: si tiene año de finalización y no cayó antes, lo consideramos grado
+    # Grado: regla práctica (NO posgrado) + tiene “Año de finalización” + no “Actualidad”
+    # Esto captura: Contadora Pública, Abogado, Bioquímico, Ingeniero, Médico, Licenciado/a, etc.
+    if RE_FINISH_YEAR.search(entry) and not (RE_IN_PROGRESS.search(entry) or RE_ENDS_WITH_ACTUALIDAD.search(entry)):
         return "grado"
 
-    # rango cerrado sin “Año de finalización”
-    if RANGO_CERRADO_RX.search(entry) and not RANGO_ACTUALIDAD_RX.search(entry):
-        # Si no es posgrado por palabra, lo dejamos como otros (no puntúa acá)
-        return "otros"
-
-    return None
+    return "otro"
 
 
-def count_formacion_titles(block: str) -> dict:
+def counts_from_formacion(block: str) -> dict:
     """
-    Cuenta entradas FINALIZADAS por tipo, deduplicando por título.
+    Devuelve conteos robustos SOLO de formación académica.
+    - Posgrados puntúan SOLO si entry_is_completed(entry)
+    - Grado puntúa si tiene año de finalización y no en curso
+    - Dedup por (tipo, titulo_normalizado, fin_token)
     """
+    entries = split_entries(block)
+    seen = set()
+
     counts = {
-        "doctorado_fin": 0,
-        "maestria_fin": 0,
-        "especializacion_fin": 0,
-        "grado_fin": 0,
-        "profesorado_fin": 0,
-        "posdoc_any": 0,  # en curso o finalizado
+        "doctorado": 0,
+        "maestria": 0,
+        "especializacion": 0,
+        "grado": 0,
+        "profesorado": 0,
+        "posdoc": 0,
     }
 
-    seen = {k: set() for k in counts.keys()}
-
-    for entry in split_entries(block):
-        tline = entry_title_line(entry)
-        tkey = fold(tline)
-
-        tipo = classify_entry(entry)
-        if tipo is None:
+    for e in entries:
+        tipo = classify_entry(e)
+        if tipo not in counts:
             continue
 
-        if tipo == "posdoc":
-            if tkey not in seen["posdoc_any"]:
-                seen["posdoc_any"].add(tkey)
-                counts["posdoc_any"] += 1
+        titulo = get_first_line_title(e)
+        fin = get_finish_token(e)
+        key = (tipo, norm_key(titulo), norm_key(fin))
+
+        if key in seen:
             continue
 
-        fin = is_finalized(entry)
+        # Reglas de completitud
+        if tipo in ("doctorado", "maestria", "especializacion"):
+            if not entry_is_completed(e):
+                continue
 
-        if tipo == "doctorado" and fin:
-            if tkey not in seen["doctorado_fin"]:
-                seen["doctorado_fin"].add(tkey)
-                counts["doctorado_fin"] += 1
+        if tipo == "grado":
+            # grado: exige año de finalización (ya lo exige classify_entry)
+            if not entry_is_completed(e) and not RE_FINISH_YEAR.search(e):
+                continue
 
-        elif tipo == "maestria" and fin:
-            if tkey not in seen["maestria_fin"]:
-                seen["maestria_fin"].add(tkey)
-                counts["maestria_fin"] += 1
+        # profesorado: si tiene año de finalización o “Completo”, puntúa.
+        if tipo == "profesorado":
+            if not (RE_FINISH_YEAR.search(e) or RE_SITUACION_COMPLETO.search(e)):
+                continue
+            if RE_IN_PROGRESS.search(e) or RE_ENDS_WITH_ACTUALIDAD.search(e):
+                continue
 
-        elif tipo == "especializacion" and fin:
-            if tkey not in seen["especializacion_fin"]:
-                seen["especializacion_fin"].add(tkey)
-                counts["especializacion_fin"] += 1
+        # posdoc: puede ser en curso o finalizado (según tu criterio actual)
+        # lo dejamos como estaba: puntúa si aparece (sin exigir finalización)
+        # Si querés exigir finalización también, avisame y lo ajusto.
 
-        elif tipo == "grado" and fin:
-            if tkey not in seen["grado_fin"]:
-                seen["grado_fin"].add(tkey)
-                counts["grado_fin"] += 1
-
-        elif tipo == "profesorado" and fin:
-            if tkey not in seen["profesorado_fin"]:
-                seen["profesorado_fin"].add(tkey)
-                counts["profesorado_fin"] += 1
+        seen.add(key)
+        counts[tipo] += 1
 
     return counts
 
 
-# =========================================================
+# =========================
 # UI
-# =========================================================
+# =========================
 uploaded = st.file_uploader("Cargar CV (.docx o .pdf)", type=["docx", "pdf"])
 
 if uploaded:
     ext = uploaded.name.split(".")[-1].lower()
     try:
         raw_text = extract_text_docx(uploaded) if ext == "docx" else extract_text_pdf(uploaded)
-        raw_text = normalize_text(raw_text)
     except Exception as e:
         st.error(str(e))
         st.stop()
 
+    raw_text = normalize_spaces(raw_text)
+
     st.success(f"Archivo cargado: {uploaded.name}")
 
-    # Bloque formación (para debug)
-    form_block = extract_formacion_academica_block(raw_text)
-    form_counts = count_formacion_titles(form_block) if form_block else {
-        "doctorado_fin": 0,
-        "maestria_fin": 0,
-        "especializacion_fin": 0,
-        "grado_fin": 0,
-        "profesorado_fin": 0,
-        "posdoc_any": 0,
-    }
-
+    # Debug general
     with st.expander("Ver texto extraído (debug)"):
         st.text_area("Texto", raw_text, height=240)
 
+    # Debug de formación
+    form_block = extract_formacion_academica_block(raw_text)
     with st.expander("Ver sección de Formación académica (debug)"):
-        if form_block:
-            st.text_area("FORMACION ACADEMICA (bloque detectado)", form_block, height=220)
-            st.caption(f"Conteos estructurados (finalizados): {form_counts}")
-        else:
-            st.warning("No se detectó el bloque 'FORMACION ACADEMICA' en este CV.")
+        st.text_area("FORMACIÓN ACADÉMICA (recorte)", form_block if form_block else "[No se encontró la sección]", height=240)
+
+    form_counts = counts_from_formacion(form_block)
 
     results = {}
     total = 0.0
 
     # =========================
-    # Cálculo por sección
+    # Cálculo de puntajes por sección
     # =========================
-    for section, cfg in criteria.get("sections", {}).items():
+    for section, cfg in criteria["sections"].items():
         st.markdown(f"### {section}")
         rows = []
         subtotal_raw = 0.0
 
-        items = cfg.get("items", {})
-        for item, icfg in items.items():
+        for item, icfg in cfg.get("items", {}).items():
             pattern = icfg.get("pattern", "")
-            unit = float(icfg.get("unit_points", 0) or 0)
-            item_cap = float(icfg.get("max_points", 0) or 0)
 
+            # --- Overrides robustos SOLO para la sección de Formación ---
             c = None
+            if section.lower().startswith("formación académica"):
+                item_l = item.lower()
 
-            # =========================================================
-            # OVERRIDE ROBUSTO SOLO PARA "Formación académica y complementaria"
-            # (evita que regex puntúe 'Actualidad' y arregla Farah/Young/Vinader)
-            # =========================================================
-            if fold(section) == fold("Formación académica y complementaria"):
-                it = fold(item)
+                # doctorado finalizado
+                if "doctorado" in item_l:
+                    c = form_counts.get("doctorado", 0)
 
-                # Doctorado finalizado
-                if "doctor" in it and "final" in it:
-                    c = form_counts["doctorado_fin"]
+                # maestría finalizada
+                elif "maestr" in item_l or "magíster" in item_l or "magister" in item_l:
+                    c = form_counts.get("maestria", 0)
 
-                # Maestría finalizada
-                elif "maestr" in it and "final" in it:
-                    c = form_counts["maestria_fin"]
+                # especialización finalizada
+                elif "especializ" in item_l or "especialista" in item_l:
+                    c = form_counts.get("especializacion", 0)
 
-                # Especialización finalizada
-                elif ("especializ" in it or "especialista" in it) and "final" in it:
-                    c = form_counts["especializacion_fin"]
+                # título de grado finalizado
+                elif "título de grado" in item_l or "titulo de grado" in item_l or "grado" == item_l.strip():
+                    c = form_counts.get("grado", 0)
 
-                # Título de grado finalizado
-                elif ("titulo de grado" in it) or (it.strip() == "grado") or ("grado" in it and "final" in it):
-                    c = form_counts["grado_fin"]
+                # profesorado
+                elif "profesorado" in item_l or "docencia universitaria" in item_l:
+                    c = form_counts.get("profesorado", 0)
 
-                # Profesorado / docencia universitaria finalizado
-                elif ("profesor" in it or "docencia universitaria" in it) and "final" in it:
-                    c = form_counts["profesorado_fin"]
+                # posdoc
+                elif "posdoctorado" in item_l or "postdoctorado" in item_l:
+                    c = form_counts.get("posdoc", 0)
 
-                # Posdoctorado (en curso o finalizado)
-                elif ("posdoctor" in it or "postdoctor" in it):
-                    c = form_counts["posdoc_any"]
-
-            # fallback: regex del criteria.json
+            # si no aplicó override -> lógica original por regex global
             if c is None:
                 c = match_count(pattern, raw_text)
 
-            pts_raw = c * unit
-            pts = clip(pts_raw, item_cap)
-
+            pts = clip(c * icfg.get("unit_points", 0), icfg.get("max_points", 0))
             rows.append({
                 "Ítem": item,
-                "Ocurrencias": int(c),
-                "Puntaje (tope ítem)": float(pts),
-                "Tope ítem": float(item_cap)
+                "Ocurrencias": c,
+                "Puntaje (tope ítem)": pts,
+                "Tope ítem": icfg.get("max_points", 0)
             })
-
             subtotal_raw += pts
 
         df = pd.DataFrame(rows)
-        section_cap = float(cfg.get("max_points", 0) or 0)
-        subtotal = clip(subtotal_raw, section_cap)
-
+        subtotal = clip(subtotal_raw, cfg.get("max_points", 0))
         st.dataframe(df, use_container_width=True)
-        st.info(f"Subtotal {section}: {subtotal:.1f} / máx {section_cap:.0f}")
-
+        st.info(f"Subtotal {section}: {subtotal} / máx {cfg.get('max_points', 0)}")
         results[section] = {"df": df, "subtotal": subtotal}
         total += subtotal
 
@@ -506,14 +396,13 @@ if uploaded:
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
-            sheet = sec[:31]
-            data["df"].to_excel(writer, sheet_name=sheet, index=False)
+            data["df"].to_excel(writer, sheet_name=sec[:31], index=False)
 
         resumen = pd.DataFrame({
             "Sección": list(results.keys()),
             "Subtotal": [results[s]["subtotal"] for s in results]
         })
-        resumen.loc[len(resumen)] = ["TOTAL", float(resumen["Subtotal"].sum())]
+        resumen.loc[len(resumen)] = ["TOTAL", resumen["Subtotal"].sum()]
         resumen.loc[len(resumen)] = ["CATEGORÍA", categoria_label]
         resumen.to_excel(writer, sheet_name="RESUMEN", index=False)
 
