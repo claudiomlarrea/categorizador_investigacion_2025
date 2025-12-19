@@ -1,11 +1,3 @@
-# app.py — Valorador de CV Docente/Investigador (UCCuyo)
-# FIX CLAVE:
-# - Para títulos estructurales (Doctorado/Maestría/Especialización/Grado/Profesorado):
-#   toma BLOQUES recortados (hasta el próximo título) para que "Actualidad" de otro ítem no contamine.
-# - No puntúa posgrados "en curso" (Actualidad/En curso/Cursando/etc.).
-# - Tolera "null" intermedio típico del CVar.
-# - Ítems no estructurales: conteo por regex del criteria.json + topes.
-
 import streamlit as st
 import re, json, io
 import pandas as pd
@@ -118,69 +110,94 @@ def clip(v, cap):
     return min(float(v), cap_val)
 
 # =========================
+# RECORTE POR SECCIÓN: “FORMACIÓN ACADÉMICA”
+# =========================
+SECTION_START_RX = re.compile(
+    r"(?im)^\s*(FORMACI[ÓO]N\s+ACAD[ÉE]MICA|FORMACION\s+ACADEMICA)\s*$"
+)
+# posibles encabezados siguientes del CVar (varían entre CVs)
+SECTION_END_RX = re.compile(
+    r"(?im)^\s*("
+    r"ANTECEDENTES|CARGOS|ACTIVIDADES|PRODUCCI[ÓO]N|PUBLICACIONES|"
+    r"FINANCIAMIENTO|PROYECTOS|EXTENSI[ÓO]N|EVALUACI[ÓO]N|"
+    r"PARTICIPACI[ÓO]N|IDIOMAS|FORMACI[ÓO]N\s+COMPLEMENTARIA|"
+    r"OTROS\s+ANTECEDENTES"
+    r")\b.*$"
+)
+
+def slice_formacion_academica(text: str) -> str:
+    """
+    Si encuentra el encabezado “FORMACIÓN ACADÉMICA”, recorta hasta el próximo gran encabezado.
+    Si no lo encuentra, devuelve el texto completo (fallback).
+    """
+    m = SECTION_START_RX.search(text)
+    if not m:
+        return text
+
+    start = m.end()
+    tail = text[start:]
+
+    m_end = SECTION_END_RX.search(tail)
+    if m_end:
+        end = start + m_end.start()
+        return text[start:end].strip()
+
+    return tail.strip()
+
+# =========================
 # Reglas de finalización (NO EN CURSO)
 # =========================
 INPROGRESS_RX = re.compile(
     r"(?i)\b(Actualidad|En\s+curso|Cursando|No\s+finalizad[oa]|Sin\s+finalizar|Incompleto|"
-    r"Doctorand[oa]|Maestrand[oa]|Especializand[oa])\b"
+    r"Doctorand[oa]|Maestrand[oa]|Especializand[oa]|Presente)\b"
 )
+# también detecta rangos tipo: "2018 - Actualidad"
+INPROGRESS_RANGE_RX = re.compile(r"(?i)\b(19|20)\d{2}\s*-\s*(Actualidad|Presente)\b")
 
-# Evidencia de finalización:
 FINISH_RX = re.compile(
     r"(?is)("
     r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo|"
-    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:\d{2}/)?(?:19\d{2}|20\d{2})|"
-    r"\b\d{2}/\d{4}\s*[-–]\s*\d{2}/\d{4}\b|"
+    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(?:\d{2}/)?(?:19\d{2}|20\d{2})"
     r")"
 )
 
-# =========================
-# BLOQUES recortados por próximo título (FIX)
-# =========================
-# Un “ancla global” que marca el inicio de cualquier título/posgrado (para cortar bloques).
+# “Ancla global” para cortar bloques por título
 GLOBAL_ANCHOR_RX = re.compile(
     r"(?i)\b("
     r"Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|"
     r"Maestr[ií]a|Mag[ií]ster|"
     r"Especializaci[oó]n|Especialista|"
     r"Licenciad[oa]\s+en|Licenciatura\s+en|"
-    r"T[eé]cnic[ao]\s+Universitari[ao]|Tecnicatura|"
+    r"T[eé]cnic[ao]\s+Universitari[ao]\s+en|Tecnicatura\s+en|"
     r"Profesorado|Profesor\s+Universitari[oa]|Docente\s+Universitario|Profesor\s+en"
     r")\b"
 )
 
-def get_local_block(text: str, start_idx: int, max_chars: int = 2000) -> str:
-    """
-    Devuelve el bloque desde start_idx hasta el próximo título (ancla global) o hasta max_chars.
-    Esto evita que "Actualidad" de un posgrado posterior contamine un título finalizado previo.
-    """
+def get_local_block(text: str, start_idx: int, max_chars: int = 2200) -> str:
     end_limit = min(len(text), start_idx + max_chars)
     tail = text[start_idx:end_limit]
 
-    # Buscar el próximo ancla global DESPUÉS del primer carácter del bloque
     m_next = GLOBAL_ANCHOR_RX.search(tail, pos=1)
     if m_next:
         tail = tail[:m_next.start()]
 
-    # Limpiar ruido CVar
     tail = re.sub(r"\bnull\b", " ", tail, flags=re.IGNORECASE)
     tail = re.sub(r"[ \t]+", " ", tail)
     return tail.strip()
 
-def has_completed_title(title_anchor_regex: str, text: str) -> int:
+def has_completed_title_in(text_scope: str, title_anchor_regex: str) -> int:
     """
-    Devuelve 1 si existe AL MENOS UN título/posgrado finalizado válido (no en curso).
-    (Nunca >1, porque el ítem tiene tope y semántica 1/0.)
+    Devuelve 1 si hay AL MENOS UN título finalizado dentro del scope (Formación Académica).
     """
     rx_anchor = re.compile(title_anchor_regex, re.IGNORECASE)
-    for m in rx_anchor.finditer(text):
-        block = get_local_block(text, m.start(), max_chars=2500)
+    for m in rx_anchor.finditer(text_scope):
+        block = get_local_block(text_scope, m.start(), max_chars=2400)
 
-        # excluir si está en curso
-        if INPROGRESS_RX.search(block):
+        # En curso => NO puntúa
+        if INPROGRESS_RX.search(block) or INPROGRESS_RANGE_RX.search(block):
             continue
 
-        # exigir evidencia de finalización
+        # Exigir evidencia de finalización
         if FINISH_RX.search(block):
             return 1
 
@@ -218,8 +235,12 @@ if uploaded:
 
     st.success(f"Archivo cargado: {uploaded.name}")
 
+    # scope exclusivo para Formación Académica
+    formacion_scope = slice_formacion_academica(raw_text)
+
     with st.expander("Ver texto extraído (debug)"):
-        st.text_area("Texto", raw_text, height=260)
+        st.text_area("Texto completo", raw_text, height=220)
+        st.text_area("Scope Formación Académica (debug)", formacion_scope, height=220)
 
     results = {}
     total = 0.0
@@ -241,29 +262,35 @@ if uploaded:
             # --- REGLAS ESPECIALES: títulos estructurales ---
             if section == "Formación académica y complementaria":
                 if item == "Doctorado (finalizado)":
-                    c = has_completed_title(r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b", raw_text)
+                    c = has_completed_title_in(
+                        formacion_scope,
+                        r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad)\b"
+                    )
 
                 elif item == "Maestría (finalizada)":
-                    c = has_completed_title(r"\b(Maestr[ií]a|Mag[ií]ster)\b", raw_text)
+                    c = has_completed_title_in(formacion_scope, r"\b(Maestr[ií]a|Mag[ií]ster)\b")
 
                 elif item == "Especialización (finalizada)":
-                    c = has_completed_title(r"\b(Especializaci[oó]n|Especialista)\b", raw_text)
+                    c = has_completed_title_in(formacion_scope, r"\b(Especializaci[oó]n|Especialista)\b")
 
                 elif item == "Título de grado (finalizado)":
-                    # Incluye variantes típicas del CVar (como Vinader):
-                    # "LICENCIADO EN ...", "Técnica Universitaria en ...", etc.
-                    c = has_completed_title(
+                    # Vinader: “LICENCIADO EN …” + “Año de finalización: 03/2000”
+                    c = has_completed_title_in(
+                        formacion_scope,
                         r"\b("
                         r"Licenciad[oa]\s+en|Licenciatura\s+en|"
-                        r"T[eé]cnic[ao]\s+Universitari[ao]\s+en|Tecnicatura\s+en|"
-                        r")\b",
-                        raw_text
+                        r"T[eé]cnic[ao]\s+Universitari[ao]\s+en|Tecnicatura\s+en"
+                        r")\b"
                     )
 
                 elif item == "Profesorado/Docencia universitaria (finalizado)":
-                    c = has_completed_title(r"\b(Profesorado|Profesor\s+Universitari[oa]|Docente\s+Universitario|Profesor\s+en)\b", raw_text)
+                    c = has_completed_title_in(
+                        formacion_scope,
+                        r"\b(Profesorado|Profesor\s+Universitari[oa]|Docente\s+Universitario|Profesor\s+en)\b"
+                    )
 
                 else:
+                    # el resto usa criteria.json sobre el texto completo
                     c = match_count(pattern, raw_text)
             else:
                 c = match_count(pattern, raw_text)
