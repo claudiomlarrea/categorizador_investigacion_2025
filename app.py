@@ -1,6 +1,7 @@
 import streamlit as st
 import re, json, io
 import pandas as pd
+import unicodedata
 from docx import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
@@ -85,6 +86,16 @@ def normalize_text(text: str) -> str:
     return text
 
 
+def strip_accents(s: str) -> str:
+    if not s:
+        return ""
+    # NFKD separa letras de diacríticos, luego se eliminan marcas
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKD", s)
+        if not unicodedata.combining(ch)
+    )
+
+
 # =========================
 # Regex flags desde criteria.json
 # =========================
@@ -131,14 +142,9 @@ def clip(v, cap):
 
 
 # =========================
-# Helper: recortar sección "Formación académica"
-# (evita contar "Doctorado" repetido en otras secciones)
+# Recorte de sección "Formación académica"
 # =========================
 def slice_section(text: str, start_patterns, end_patterns, max_len_after=25000) -> str:
-    """
-    Busca el primer start_pattern; desde ahí corta hasta el primer end_pattern posterior.
-    Si no encuentra, devuelve texto completo.
-    """
     if not text:
         return ""
 
@@ -158,7 +164,6 @@ def slice_section(text: str, start_patterns, end_patterns, max_len_after=25000) 
     for ep in end_patterns:
         m2 = re.search(ep, tail, re.IGNORECASE)
         if m2:
-            # cortar al inicio del heading siguiente (pero no al mismo heading inicial)
             if m2.start() > 20:
                 end_idx = m2.start()
                 break
@@ -167,84 +172,71 @@ def slice_section(text: str, start_patterns, end_patterns, max_len_after=25000) 
 
 
 # =========================
-# Detección robusta: "finalizado" vs "Actualidad"
+# Detección robusta: finalizado vs en curso
 # =========================
 IN_PROGRESS_RX = re.compile(
-    r"\bActualidad\b|\bEn curso\b|\bCursando\b|\bNo finalizad[oa]\b|\bSin finalizar\b",
+    r"\bactualidad\b|\ben curso\b|\bcursando\b|\bno finalizad[oa]\b|\bsin finalizar\b",
     re.IGNORECASE
 )
 
 FINALIZATION_RX = re.compile(
-    r"A[nñ]o de (finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(\d{2}/\d{4}|(19|20)\d{2})",
+    r"anio de (finalizacion|obtencion|graduacion)\s*:\s*(\d{2}/\d{4}|(19|20)\d{2})",
     re.IGNORECASE
 )
 
 SITUACION_COMPLETO_RX = re.compile(
-    r"Situaci[oó]n del nivel\s*:\s*Completo",
+    r"situacion del nivel\s*:\s*completo",
     re.IGNORECASE
 )
 
 
-def block_around(text: str, idx: int, back: int = 250, forward: int = 900) -> str:
-    a = max(0, idx - back)
-    b = min(len(text), idx + forward)
-    return text[a:b]
-
-
-def extract_entry_block(text: str, idx: int, max_chars: int = 1200) -> str:
-    """
-    Intenta tomar el "bloque" de una titulación: desde idx hasta doble salto o hasta max_chars.
-    """
+def extract_entry_block(text: str, idx: int, max_chars: int = 1600) -> str:
     if not text:
         return ""
     start = max(0, idx - 50)
     end = min(len(text), idx + max_chars)
     chunk = text[start:end]
-    # cortar por doble salto si aparece
     cut = re.search(r"\n\s*\n", chunk)
     return chunk[:cut.start()] if cut else chunk
 
 
 def normalize_key(s: str) -> str:
-    s = s.lower().strip()
+    s = (s or "").lower().strip()
     s = re.sub(r"\s+", " ", s)
     return s
 
 
-def count_completed_by_keyword(text: str, keyword_rx: re.Pattern) -> int:
+def count_completed_by_keyword(text_plain: str, keyword_rx: re.Pattern) -> int:
     """
-    Cuenta titulaciones COMPLETAS:
-    - Debe existir "Año de finalización/obtención/graduación: MM/YYYY o YYYY"
-      o "Situación del nivel: Completo"
-    - Debe NO contener Actualidad/En curso/Cursando en el bloque de la entrada.
-    - Deduplica por (título + año) para evitar repetir conteos.
+    text_plain debe venir YA sin acentos (strip_accents).
+    Regla:
+      - Si en el bloque aparece 'actualidad/en curso/cursando' => NO cuenta.
+      - Debe tener 'anio de finalizacion/obtencion/graduacion: ...' o 'situacion del nivel: completo'
+      - Deduplicación por (primera línea + año)
     """
-    if not text:
+    if not text_plain:
         return 0
 
     seen = set()
     count = 0
 
-    for m in keyword_rx.finditer(text):
-        entry = extract_entry_block(text, m.start())
+    for m in keyword_rx.finditer(text_plain):
+        entry = extract_entry_block(text_plain, m.start())
 
-        # 1) si está "Actualidad / En curso / Cursando" en la misma entrada => NO cuenta
         if IN_PROGRESS_RX.search(entry):
             continue
 
-        # 2) debe evidenciar finalización
         has_final = FINALIZATION_RX.search(entry) or SITUACION_COMPLETO_RX.search(entry)
         if not has_final:
             continue
 
-        # 3) armar clave para deduplicar (título aproximado + año)
-        title_hint = entry.split("\n")[0][:120]
+        title_hint = entry.split("\n")[0][:140]
         year = ""
         mfy = FINALIZATION_RX.search(entry)
         if mfy:
             year = mfy.group(2)
-        key = normalize_key(f"{title_hint}::{year}")
 
+        key = normalize_key(f"{title_hint}::{year}")
         if key in seen:
             continue
 
@@ -254,44 +246,44 @@ def count_completed_by_keyword(text: str, keyword_rx: re.Pattern) -> int:
     return count
 
 
-# Patrones de niveles (para formación)
-RX_DOCTORADO = re.compile(r"\bDoctorad[oa]\b|\bDoctor en\b|\bPh\.?\s?D\b", re.IGNORECASE)
-RX_MAESTRIA = re.compile(r"\bMaestr[ií]a\b|\bMag[ií]ster\b", re.IGNORECASE)
-RX_ESPECIALIZACION = re.compile(r"\bEspecializaci[oó]n\b|\bEspecialista\b", re.IGNORECASE)
-RX_PROFESORADO = re.compile(r"\bProfesorado\b|\bProfesor en\b|\bDocencia universitaria\b", re.IGNORECASE)
+# =========================
+# Patrones (EN TEXTO SIN ACENTOS)
+# =========================
+RX_DOCTORADO = re.compile(r"\bdoctorad[oa]\b|\bdoctor en\b|\bph\.?\s?d\b", re.IGNORECASE)
+RX_MAESTRIA = re.compile(r"\bmaestria\b|\bmagister\b", re.IGNORECASE)
+RX_ESPECIALIZACION = re.compile(r"\bespecializacion\b|\bespecialista\b", re.IGNORECASE)
+RX_PROFESORADO = re.compile(r"\bprofesorado\b|\bprofesor en\b|\bdocencia universitaria\b", re.IGNORECASE)
 
-# Grado (incluye "Contadora Pública", "Licenciado...", "Técnica Universitaria...", etc.)
+# Grado: contempla "Contadora Publica", "Licenciada en Psicologia", "Tecnica Universitaria ..."
 RX_GRADO = re.compile(
-    r"\bLicenciad[oa]\b|"
-    r"\bContador(?:a)?\b|\bContador(?:a)? P[úu]blic[oa]\b|"
-    r"\bAbogad[oa]\b|"
-    r"\bIngenier[oa]\b|"
-    r"\bM[eé]dic[oa]\b|"
-    r"\bBioqu[ií]mic[oa]\b|"
-    r"\bFarmac[eé]utic[oa]\b|"
-    r"\bOdont[oó]log[oa]\b|"
-    r"\bPsic[oó]log[oa]\b|"
-    r"\bArquitect[oa]\b|"
-    r"\bVeterinar[ioia]\b|"
-    r"\bKinesi[oó]log[oa]\b|"
-    r"\bNutricionist[ao]\b|"
-    r"\bT[eé]cnic[oa]\s+Universitari[ao]\b",
+    r"\blicenciad[oa]\b|"
+    r"\bcontador(?:a)?\b|\bcontador(?:a)? publica\b|"
+    r"\babogad[oa]\b|"
+    r"\bingenier[oa]\b|"
+    r"\bmedic[oa]\b|"
+    r"\bbioquimic[oa]\b|"
+    r"\bfarmaceutic[oa]\b|"
+    r"\bodontolog[oa]\b|"
+    r"\bpsicolog(?:o|a)\b|\bpsicologia\b|"
+    r"\barquitect[oa]\b|"
+    r"\bveterinar(?:io|ia)\b|"
+    r"\bkinesiolog(?:o|a)\b|"
+    r"\bnutricionist[ao]\b|"
+    r"\btecnic[oa]\s+universitari[ao]\b",
     re.IGNORECASE
 )
 
-# Posdoctorado: se acepta "en curso o finalizado"
-RX_POSDOC = re.compile(r"\bPosdoctorad[oa]\b|\bPostdoctorad[oa]\b|\bPostdoc\b", re.IGNORECASE)
+RX_POSDOC = re.compile(r"\bposdoctorad[oa]\b|\bpostdoctorad[oa]\b|\bpostdoc\b", re.IGNORECASE)
 
 
-def count_posdoc_any(text: str) -> int:
-    if not text:
+def count_posdoc_any(text_plain: str) -> int:
+    if not text_plain:
         return 0
-    # Deduplicación suave por bloque
     seen = set()
     c = 0
-    for m in RX_POSDOC.finditer(text):
-        entry = extract_entry_block(text, m.start())
-        key = normalize_key(entry[:200])
+    for m in RX_POSDOC.finditer(text_plain):
+        entry = extract_entry_block(text_plain, m.start())
+        key = normalize_key(entry[:220])
         if key in seen:
             continue
         seen.add(key)
@@ -334,10 +326,13 @@ if uploaded:
 
     st.success(f"Archivo cargado: {uploaded.name}")
 
+    # versión sin acentos para matching robusto
+    raw_plain = strip_accents(raw_text)
+
     with st.expander("Ver texto extraído (debug)"):
         st.text_area("Texto", raw_text, height=240)
 
-    # Texto específico para "Formación académica" (reduce falsos positivos)
+    # Recorte de "Formación académica" (en original y sin acentos)
     formacion_text = slice_section(
         raw_text,
         start_patterns=[
@@ -355,8 +350,9 @@ if uploaded:
             r"\bEXTENSI[ÓO]N\b",
             r"\bEVALUACI[ÓO]N\b",
         ],
-        max_len_after=30000
+        max_len_after=35000
     )
+    formacion_plain = strip_accents(formacion_text)
 
     with st.expander("Ver sección de Formación académica (debug)"):
         st.text_area("Formación académica (recorte)", formacion_text, height=220)
@@ -382,21 +378,21 @@ if uploaded:
             unit = float(icfg.get("unit_points", 0) or 0)
             item_cap = float(icfg.get("max_points", 0) or 0)
 
-            # ---- Overrides SOLO para la sección de Formación (evita romper lo demás)
+            # Overrides SOLO para Formación (no rompe el resto)
             if is_formacion and "doctorado" in item_name and "final" in item_name:
-                c = count_completed_by_keyword(formacion_text, RX_DOCTORADO)
-            elif is_formacion and ("maestr" in item_name or "magíster" in item_name or "magister" in item_name) and "final" in item_name:
-                c = count_completed_by_keyword(formacion_text, RX_MAESTRIA)
-            elif is_formacion and ("especializ" in item_name or "especialista" in item_name) and "final" in item_name:
-                c = count_completed_by_keyword(formacion_text, RX_ESPECIALIZACION)
+                c = count_completed_by_keyword(formacion_plain, RX_DOCTORADO)
+            elif is_formacion and "maestr" in item_name and "final" in item_name:
+                c = count_completed_by_keyword(formacion_plain, RX_MAESTRIA)
+            elif is_formacion and "especializ" in item_name and "final" in item_name:
+                c = count_completed_by_keyword(formacion_plain, RX_ESPECIALIZACION)
             elif is_formacion and ("título de grado" in item_name or "titulo de grado" in item_name) and "final" in item_name:
-                c = count_completed_by_keyword(formacion_text, RX_GRADO)
+                c = count_completed_by_keyword(formacion_plain, RX_GRADO)
             elif is_formacion and ("profesor" in item_name or "docencia universitaria" in item_name) and "final" in item_name:
-                c = count_completed_by_keyword(formacion_text, RX_PROFESORADO)
+                c = count_completed_by_keyword(formacion_plain, RX_PROFESORADO)
             elif is_formacion and ("posdoctor" in item_name or "postdoctor" in item_name):
-                c = count_posdoc_any(formacion_text)
+                c = count_posdoc_any(formacion_plain)
             else:
-                # ---- Default: usa criteria.json
+                # default criteria.json (usa texto original)
                 c = match_count(pattern, raw_text)
 
             pts_raw = c * unit
@@ -404,11 +400,10 @@ if uploaded:
 
             rows.append({
                 "Ítem": item,
-                "Ocurrencias": c,
+                "Ocurrencias": int(c),
                 "Puntaje (tope ítem)": float(pts),
                 "Tope ítem": float(item_cap),
             })
-
             subtotal_raw += float(pts)
 
         df = pd.DataFrame(rows)
@@ -445,7 +440,7 @@ if uploaded:
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
-            sheet = (sec[:31] if sec else "SECCION")  # <=31
+            sheet = (sec[:31] if sec else "SECCION")
             data["df"].to_excel(writer, sheet_name=sheet, index=False)
 
         resumen = pd.DataFrame({
