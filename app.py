@@ -159,7 +159,9 @@ RE_RANGE = re.compile(
 # Detecta líneas que suelen iniciar una "entrada" de título
 RE_ENTRY_START = re.compile(
     r"^(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
-    r"Especializaci[oó]n|Especialista|Posdoctorado|Postdoctorado|Profesorado|Profesor\s+en|"
+    r"Especializaci[oó]n|Especialista|Posdoctorado|Postdoctorado|"
+    r"Pos\s*graduad[oa]|Pos\s*grado|Posgrado|"
+    r"Profesorado|Profesor\s+en|"
     r"Licenciatura|Licenciado/a|Licenciado|Licenciada|Contador|Contadora|Contadur[ií]a|"
     r"Abogado|Abogada|Ingenier|Bioqu[ií]mic|M[eé]dic|Farmac[eé]utic|Arquitect|Odont[oó]log)\b",
     re.IGNORECASE
@@ -259,6 +261,8 @@ def classify_entry(entry: str) -> str:
     if re.search(r"\bMaestr[ií]a\b|\bMag[ií]ster\b", entry, re.IGNORECASE):
         return "maestria"
     if re.search(r"\bEspecializaci[oó]n\b|\bEspecialista\b", entry, re.IGNORECASE):
+        return "especializacion"
+    if re.search(r"\bPos\s*graduad[oa]\b|\bPos\s*grado\b|\bPosgrado\b", entry, re.IGNORECASE):
         return "especializacion"
     if re.search(r"\bPosdoctorado\b|\bPostdoctorado\b", entry, re.IGNORECASE):
         return "posdoc"
