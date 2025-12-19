@@ -15,6 +15,7 @@ st.set_page_config(page_title="Valorador de CV - UCCuyo (DOCX/PDF)", layout="wid
 st.title("Universidad Católica de Cuyo — Valorador de CV Docente")
 st.caption("Incluye exportación a Excel y Word + categoría automática según puntaje total.")
 
+
 # =========================
 # Cargar criteria.json
 # =========================
@@ -36,6 +37,7 @@ def load_json(path):
 
 criteria = load_json("criteria.json")
 
+
 # =========================
 # Extracción de texto
 # =========================
@@ -47,6 +49,7 @@ def extract_text_docx(file):
             text += "\n" + " | ".join(c.text for c in row.cells)
     return text
 
+
 def extract_text_pdf(file):
     if not HAVE_PDF:
         raise RuntimeError("Falta pdfplumber. Agregalo en requirements.txt: pdfplumber")
@@ -56,6 +59,7 @@ def extract_text_pdf(file):
             chunks.append(p.extract_text() or "")
     return "\n".join(chunks)
 
+
 # =========================
 # Normalización de texto
 # =========================
@@ -63,7 +67,7 @@ def normalize_text(text: str) -> str:
     if not text:
         return ""
 
-    # Unificar guiones típicos
+    # Unificar guiones típicos de PDF
     text = text.replace("\u2013", "-").replace("\u2014", "-").replace("\u2212", "-")
 
     # Quitar guionado por salto de línea: "inves-\ntigación" -> "investigación"
@@ -72,13 +76,14 @@ def normalize_text(text: str) -> str:
     # Normalizar saltos de línea
     text = text.replace("\r\n", "\n").replace("\r", "\n")
 
-    # Normalizar espacios
+    # Espacios
     text = re.sub(r"[ \t]+", " ", text)
 
-    # Compactar líneas vacías
+    # Compactar líneas vacías (cuando existen)
     text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text
+
 
 # =========================
 # Regex flags desde criteria.json
@@ -97,9 +102,11 @@ def flags_from_meta(criteria_dict) -> int:
 
 DEFAULT_FLAGS = flags_from_meta(criteria)
 
+
 @st.cache_data(show_spinner=False)
 def compile_pattern(pattern: str, flags: int):
     return re.compile(pattern, flags)
+
 
 def match_count(pattern: str, text: str) -> int:
     if not pattern:
@@ -111,6 +118,7 @@ def match_count(pattern: str, text: str) -> int:
         st.warning(f"Regex inválida: {e} | patrón: {pattern[:120]}...")
         return 0
 
+
 def clip(v, cap):
     if cap is None:
         return v
@@ -120,8 +128,9 @@ def clip(v, cap):
         return v
     return min(v, cap_val)
 
+
 # =========================
-# Categoría según puntaje
+# Categorización según puntaje
 # =========================
 def obtener_categoria(total, criteria_dict):
     categorias = criteria_dict.get("categorias", {})
@@ -138,192 +147,189 @@ def obtener_categoria(total, criteria_dict):
 
     return mejor_clave, mejor_desc
 
-# ==========================================================
-# PARSEO ROBUSTO: Formación académica (FINALIZADO vs ACTUALIDAD)
-# ==========================================================
-HEADING_FORMACION = [
-    r"\bFORMACI[ÓO]N ACAD[ÉE]MICA\b",
-    r"\bFormaci[óo]n acad[ée]mica\b",
-]
-STOP_HEADINGS = [
-    r"\bANTECEDENTES\b",
-    r"\bPRODUCCI[ÓO]N\b",
-    r"\bPUBLICACIONES\b",
-    r"\bFINANCIAMIENTO\b",
-    r"\bPROYECTOS\b",
-    r"\bCARGOS\b",
-    r"\bACTIVIDADES\b",
-]
 
-def extract_section_block(text: str, heading_patterns, stop_patterns, max_len=25000) -> str:
-    """
-    Extrae un bloque desde el primer heading hasta el primer stop heading posterior.
-    Si no encuentra, devuelve string vacío.
-    """
-    if not text:
-        return ""
-
-    # buscar inicio
-    start_idx = None
-    for hp in heading_patterns:
-        m = re.search(hp, text, re.IGNORECASE)
-        if m:
-            start_idx = m.start()
-            break
-    if start_idx is None:
-        return ""
-
-    tail = text[start_idx:start_idx + max_len]
-
-    # buscar fin (primer stop heading, pero dejando que no corte en la misma línea inmediata)
-    end_idx = None
-    for sp in stop_patterns:
-        m2 = re.search(sp, tail, re.IGNORECASE)
-        if m2:
-            # Evitar cortar si el stop aparece muy cerca del inicio (ruido)
-            if m2.start() > 150:
-                end_idx = m2.start()
-                break
-
-    return tail[:end_idx] if end_idx else tail
-
-def has_completion_marker(window: str) -> bool:
-    """
-    SOLO consideramos finalizado si hay marcador explícito.
-    IMPORTANTE: NO usar "año suelto" porque rompe con '2018 - Actualidad'.
-    """
-    if not window:
-        return False
-
-    # Situación del nivel completo (CVar clásico)
-    if re.search(r"Situaci[oó]n del nivel\s*:?\s*Completo", window, re.IGNORECASE):
+# =========================
+# Helpers robustos "finalizado"
+# =========================
+def _is_garbage_line(line: str) -> bool:
+    if not line:
         return True
-
-    # Año de finalización/obtención/graduación (acepta MM/YYYY o YYYY)
-    if re.search(
-        r"A[nñ]o de (finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(\d{2}/)?(19|20)\d{2}",
-        window,
-        re.IGNORECASE,
-    ):
+    l = line.strip()
+    if not l:
         return True
-
-    # Algunos CV vienen como "Finalizado" / "Graduado" explícito
-    if re.search(r"\b(finalizado|finalizada|graduado|graduada|egresado|egresada|titulad[oa])\b", window, re.IGNORECASE):
+    # basura típica del CVar
+    if re.match(r"^(null|universidad|facultad|sede|instituto)\b", l, re.IGNORECASE):
         return True
-
+    # líneas claramente institucionales
+    if re.search(r"\bUNIVERSIDAD\b|\bFACULTAD\b|\bSEDE\b|\bINSTITUTO\b", l, re.IGNORECASE):
+        return True
     return False
 
-def has_actualidad_marker(window: str) -> bool:
-    if not window:
-        return False
-    return bool(re.search(r"\bActualidad\b", window, re.IGNORECASE))
 
-def count_completed_degree_by_keyword(block: str, keyword_regex: str, window_back=120, window_forward=420) -> int:
+def _find_title_line_before(pos: int, text: str, max_lines_back=25):
     """
-    Cuenta ocurrencias de un tipo de título (doctorado/maestría/especialización/etc.)
-    pero SOLO si en la ventana hay marcador de completitud y NO hay 'Actualidad'.
+    Busca una línea candidata a "título" inmediatamente antes de 'pos'
+    (usado para anclar el bloque real del título, sin arrastrar Actualidad de arriba).
     """
-    if not block:
+    pre = text[:pos]
+    lines = pre.split("\n")
+    tail = lines[-max_lines_back:] if len(lines) >= max_lines_back else lines
+    tail = [ln.strip() for ln in tail if ln.strip()]
+
+    # De atrás hacia adelante: tomar primera línea "no basura" que parezca título
+    for ln in reversed(tail):
+        if _is_garbage_line(ln):
+            continue
+        # evitar agarrar la línea "Año de finalización..."
+        if re.search(r"A[nñ]o de (finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:", ln, re.IGNORECASE):
+            continue
+        # evitar rangos de fechas solos
+        if re.match(r"^\d{2}/\d{4}\s*-\s*(Actualidad|\d{2}/\d{4}|\d{4})$", ln, re.IGNORECASE):
+            continue
+        return ln
+
+    return ""
+
+
+def count_titulo_grado_finalizado(text: str) -> int:
+    """
+    Cuenta títulos de grado finalizados usando ancla 'Año de finalización',
+    y verificando que 'Actualidad' NO esté entre la línea del título y el ancla.
+    Dedup por título para evitar inflación por repeticiones del PDF.
+    """
+    if not text:
         return 0
 
-    count = 0
-    for m in re.finditer(keyword_regex, block, re.IGNORECASE):
-        start = max(0, m.start() - window_back)
-        end = min(len(block), m.end() + window_forward)
-        window = block[start:end]
-
-        # si el ítem es en curso, NO contar
-        if has_actualidad_marker(window):
-            # aunque tenga un año (inicio), no cuenta
-            continue
-
-        # debe tener marcador explícito de finalización
-        if not has_completion_marker(window):
-            continue
-
-        count += 1
-
-    return count
-
-def count_completed_grado(block: str) -> int:
-    """
-    Grado finalizado: buscamos 'Año de finalización: ...' y verificamos
-    que en los ~250 caracteres previos haya un título típico de grado
-    (Licenciado/a, Contador/a, Médico/a, Ingeniero/a, Abogado/a, Bioquímico/a,
-    Farmacéutico/a, Arquitecto/a, Odontólogo/a, etc.)
-    También incluye 'Técnica/o Universitaria/o' (como el caso Periodismo).
-    Excluye si cerca aparece 'Actualidad'.
-    """
-    if not block:
-        return 0
-
-    # localizar cada "Año de finalización"
-    end_markers = list(re.finditer(
+    end_rx = re.compile(
         r"A[nñ]o de (finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(\d{2}/)?(19|20)\d{2}",
-        block,
-        re.IGNORECASE
-    ))
-
-    if not end_markers:
-        return 0
-
-    grado_keywords = re.compile(
-        r"\b("
-        r"Licenciad[oa]|"
-        r"Contador[ae]?\s+P[úu]blic[oa]|"
-        r"M[ée]dic[oa]|"
-        r"Ingenier[oa]|"
-        r"Abogad[oa]|"
-        r"Bioqu[ií]mic[oa]|"
-        r"Farmac[ée]utic[oa]|"
-        r"Arquitect[oa]|"
-        r"Odont[óo]log[oa]|"
-        r"Kinesi[oó]log[oa]|"
-        r"Nutricionist[ae]|"
-        r"Psic[oó]log[oa]|"
-        r"Enfermer[oa]|"
-        r"Veterinar[ioia]|"
-        r"Traductor[ae]?|"
-        r"Profesor(?:\s+en)?|Profesorado\b|"   # usuario pidió profesorados como grado
-        r"T[ée]cnic[oa]\s+Universitari[oa]|"
-        r"T[ée]cnico\s+Universitario"
-        r")\b",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
 
+    # keywords típicas de grado (incluye tecnicaturas universitarias)
+    grado_kw = re.compile(
+        r"\b("
+        r"licenciad[oa]|"
+        r"contador[ae]?\s+public[oa]|"
+        r"ingenier[oa]|"
+        r"abogad[oa]|"
+        r"medic[oa]|"
+        r"bioquimic[oa]|"
+        r"farmaceutic[oa]|"
+        r"odontolog[oa]|"
+        r"psicolog[iíì]a|psicolog[oa]|"
+        r"arquitect[oa]|"
+        r"veterinar[ioia]|"
+        r"nutricionist[ae]|"
+        r"enfermer[oa]|"
+        r"tecnic[oa]\s+universitari[oa]|tecnico\s+universitario"
+        r")\b",
+        re.IGNORECASE,
+    )
+
+    vistos = set()
     found = 0
-    # DEDUP suave: muchos CV repiten el bloque en tablas; tomamos máximo razonable 6
-    for m in end_markers:
-        # ventana alrededor del año
-        start = max(0, m.start() - 260)
-        end = min(len(block), m.end() + 120)
-        window = block[start:end]
 
-        if has_actualidad_marker(window):
+    for m in end_rx.finditer(text):
+        title_line = _find_title_line_before(m.start(), text)
+        if not title_line:
             continue
 
-        # debe haber un keyword de grado cerca
-        if not grado_keywords.search(window):
+        # Confirmar que el título sea "de grado"
+        if not grado_kw.search(title_line):
             continue
+
+        # Buscar la posición real de esa línea para recortar bloque local
+        # (rfind cerca del final para evitar agarrar una ocurrencia vieja)
+        search_from = max(0, m.start() - 2000)
+        segment = text[search_from:m.start()]
+        idx_local = segment.lower().rfind(title_line.lower())
+        if idx_local == -1:
+            title_pos = m.start()
+        else:
+            title_pos = search_from + idx_local
+
+        # CLAVE: mirar SOLO entre título y el ancla de finalización
+        between = text[title_pos:m.end()]
+        if re.search(r"\bActualidad\b", between, re.IGNORECASE):
+            continue
+
+        key = re.sub(r"\s+", " ", title_line.strip().lower())
+        if key in vistos:
+            continue
+        vistos.add(key)
 
         found += 1
 
-    # Evitar inflar por repetición de PDF: si detecta > 6, recorta a 6 (ajustable)
     return min(found, 6)
 
-def compute_formacion_counts(full_text: str) -> dict:
-    """
-    Devuelve conteos robustos para los ítems críticos de formación.
-    """
-    block = extract_section_block(full_text, HEADING_FORMACION, STOP_HEADINGS)
 
-    return {
-        "doctorado_final": count_completed_degree_by_keyword(block, r"\bDoctorado\b|\bDoctor en\b"),
-        "maestria_final": count_completed_degree_by_keyword(block, r"\bMaestr[ií]a\b|\bMag[ií]ster\b"),
-        "especializacion_final": count_completed_degree_by_keyword(block, r"\bEspecializaci[oó]n\b|\bEspecialista\b"),
-        "profesorado_final": count_completed_degree_by_keyword(block, r"\bProfesorado\b|\bProfesor en\b|\bDocencia universitaria\b"),
-        "grado_final": count_completed_grado(block),
-    }, block
+def count_posgrado_finalizado(text: str, titulo_rx: str) -> int:
+    """
+    Cuenta posgrados FINALIZADOS (Doctorado/Maestría/Especialización/Profesorado)
+    solo si:
+      - aparece el título (titulo_rx)
+      - y en los ~600 chars siguientes existe:
+           'Situación del nivel: Completo'  o  'Año de finalización: ...'
+      - y NO aparece 'Actualidad' entre título y marcador de finalización.
+    Dedup por título de la línea.
+    """
+    if not text:
+        return 0
+
+    title_rx = re.compile(titulo_rx, re.IGNORECASE)
+    completo_rx = re.compile(r"Situaci[oó]n del nivel\s*:\s*Completo", re.IGNORECASE)
+    end_rx = re.compile(
+        r"A[nñ]o de (finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*(\d{2}/)?(19|20)\d{2}",
+        re.IGNORECASE,
+    )
+
+    vistos = set()
+    count = 0
+
+    for mt in title_rx.finditer(text):
+        # hallar línea título real
+        # tomamos desde el inicio de la línea hasta el fin de la línea
+        line_start = text.rfind("\n", 0, mt.start())
+        line_start = 0 if line_start == -1 else line_start + 1
+        line_end = text.find("\n", mt.start())
+        line_end = len(text) if line_end == -1 else line_end
+        title_line = text[line_start:line_end].strip()
+
+        if _is_garbage_line(title_line):
+            continue
+
+        # mirar ventana hacia adelante para encontrar marcador de finalización
+        fwd_end = min(len(text), mt.start() + 900)
+        window = text[mt.start():fwd_end]
+
+        m_comp = completo_rx.search(window)
+        m_end = end_rx.search(window)
+
+        if not (m_comp or m_end):
+            continue
+
+        # recortar ENTRE título y el primer marcador
+        marker_pos = None
+        if m_comp and m_end:
+            marker_pos = mt.start() + min(m_comp.start(), m_end.start())
+        elif m_comp:
+            marker_pos = mt.start() + m_comp.start()
+        else:
+            marker_pos = mt.start() + m_end.start()
+
+        between = text[mt.start():marker_pos]
+        if re.search(r"\bActualidad\b", between, re.IGNORECASE):
+            continue
+
+        key = re.sub(r"\s+", " ", title_line.strip().lower())
+        if key in vistos:
+            continue
+        vistos.add(key)
+
+        count += 1
+
+    return min(count, 3)
+
 
 # =========================
 # UI
@@ -341,19 +347,8 @@ if uploaded:
 
     st.success(f"Archivo cargado: {uploaded.name}")
 
-    # Debug general
     with st.expander("Ver texto extraído (debug)"):
-        st.text_area("Texto", raw_text, height=260)
-
-    # Conteos robustos de formación
-    form_counts, form_block = compute_formacion_counts(raw_text)
-
-    with st.expander("Ver sección de Formación académica (debug)"):
-        if form_block.strip():
-            st.text_area("Bloque Formación académica", form_block, height=260)
-            st.write("Conteos robustos (finalizados):", form_counts)
-        else:
-            st.warning("No se pudo extraer el bloque de 'Formación académica' (heading no encontrado).")
+        st.text_area("Texto", raw_text, height=240)
 
     results = {}
     total = 0.0
@@ -372,26 +367,22 @@ if uploaded:
             unit = float(icfg.get("unit_points", 0) or 0)
             item_cap = float(icfg.get("max_points", 0) or 0)
 
-            # --- OVERRIDE CLAVE: Formación académica FINALIZADA ---
-            # Identificamos por nombre del ítem (NO tocamos criteria.json)
-            item_l = (item or "").strip().lower()
-            section_l = (section or "").strip().lower()
+            # -------------------------
+            # OVERRIDE robusto Formación
+            # -------------------------
+            sec_is_form = section.strip().lower() == "formación académica y complementaria"
 
-            c = None
-            if "formación académica" in section_l or "formacion academica" in section_l:
-                if item_l.startswith("doctorado") and "final" in item_l:
-                    c = form_counts["doctorado_final"]
-                elif item_l.startswith("maestr") and "final" in item_l:
-                    c = form_counts["maestria_final"]
-                elif item_l.startswith("especial") and "final" in item_l:
-                    c = form_counts["especializacion_final"]
-                elif (item_l.startswith("profesor") or "docencia universitaria" in item_l) and "final" in item_l:
-                    c = form_counts["profesorado_final"]
-                elif ("título de grado" in item_l or "titulo de grado" in item_l) and "final" in item_l:
-                    c = form_counts["grado_final"]
-
-            # si no aplica override, usamos criteria.json
-            if c is None:
+            if sec_is_form and item.strip().lower().startswith("doctorado"):
+                c = count_posgrado_finalizado(raw_text, r"\bDoctorad[oa]\b")
+            elif sec_is_form and item.strip().lower().startswith("maestr"):
+                c = count_posgrado_finalizado(raw_text, r"\bMaestr[iíì]a\b|\bMag[iíì]ster\b")
+            elif sec_is_form and item.strip().lower().startswith("especial"):
+                c = count_posgrado_finalizado(raw_text, r"\bEspecializaci[oó]n\b|\bEspecialista\b")
+            elif sec_is_form and item.strip().lower().startswith("profesorado"):
+                c = count_posgrado_finalizado(raw_text, r"\bProfesorado\b|\bProfesor\s+en\b|\bProfesor\b")
+            elif sec_is_form and item.strip().lower().startswith("título de grado"):
+                c = count_titulo_grado_finalizado(raw_text)
+            else:
                 c = match_count(pattern, raw_text)
 
             pts_raw = c * unit
@@ -399,11 +390,10 @@ if uploaded:
 
             rows.append({
                 "Ítem": item,
-                "Ocurrencias": int(c),
-                "Puntaje (tope ítem)": float(pts),
-                "Tope ítem": float(item_cap),
+                "Ocurrencias": c,
+                "Puntaje (tope ítem)": pts,
+                "Tope ítem": item_cap
             })
-
             subtotal_raw += pts
 
         df = pd.DataFrame(rows)
@@ -440,8 +430,7 @@ if uploaded:
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         for sec, data in results.items():
-            sheet = sec[:31]
-            data["df"].to_excel(writer, sheet_name=sheet, index=False)
+            data["df"].to_excel(writer, sheet_name=sec[:31], index=False)
 
         resumen = pd.DataFrame({
             "Sección": list(results.keys()),
