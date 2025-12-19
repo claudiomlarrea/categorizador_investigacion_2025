@@ -313,16 +313,15 @@ def counts_from_formacion(block: str) -> dict:
             if not entry_is_completed(e):
                 continue
 
-        # posdoc: SOLO cuenta si hay evidencia real
+        # posdoc: SOLO cuenta si hay evidencia FUERTE (no encabezado/plantilla)
         if tipo == "posdoc":
-            tiene_evidencia = (
+            tiene_evidencia_fuerte = (
                 RE_FINISH_YEAR.search(e)
                 or RE_SITUACION_COMPLETO.search(e)
                 or RE_RANGE.search(e)
-                or re.search(r"\bUNIVERSIDAD\b|\bFACULTAD\b|;", e, re.IGNORECASE)
-                or re.search(r"\".+?\"", e)
+                or re.search(r"\".+?\"", e)  # título entre comillas
             )
-            if not tiene_evidencia:
+            if not tiene_evidencia_fuerte:
                 continue
 
         seen.add(key)
