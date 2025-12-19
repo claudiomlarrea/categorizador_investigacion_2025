@@ -263,7 +263,7 @@ def classify_entry(entry: str) -> str:
     if re.search(r"\bEspecializaci[oó]n\b|\bEspecialista\b", entry, re.IGNORECASE):
         return "especializacion"
     if re.search(r"\bPos\s*graduad[oa]\b|\bPos\s*grado\b|\bPosgrado\b", entry, re.IGNORECASE):
-        return "especializacion"
+        return "otro"
     if re.search(r"\bPosdoctorado\b|\bPostdoctorado\b", entry, re.IGNORECASE):
         return "posdoc"
 
