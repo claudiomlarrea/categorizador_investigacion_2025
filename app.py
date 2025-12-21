@@ -122,24 +122,24 @@ FORMACION_HEADERS = [
 ]
 
 NEXT_SECTION_MARKERS = [
-    r"\n\s*FORMACI[ÓO]N\s+DE\s+RECURSOS\s+HUMANOS\b",
-    r"\n\s*RECURSOS\s+HUMANOS\b",
-    r"\n\s*RRHH\b",
-    r"\n\s*ANTECEDENTES\b",
-    r"\n\s*PRODUCCI[ÓO]N\b",
-    r"\n\s*PUBLICACIONES\b",
-    r"\n\s*ACTIVIDADES\b",
-    r"\n\s*EXPERIENCIA\b",
-    r"\n\s*CARGOS\b",
+    r"\n\s*FORMACI[ÓO]N\s+DE\s+RECURSOS\s+HUMANOS\s*\b",
+    r"\n\s*RECURSOS\s+HUMANOS\s*\b",
+    r"\n\s*RRHH\s*\b",
+    r"\n\s*ANTECEDENTES\s*\b",
+    r"\n\s*PRODUCCI[ÓO]N\s*\b",
+    r"\n\s*PUBLICACIONES\s*\b",
+    r"\n\s*ACTIVIDADES\s*\b",
+    r"\n\s*EXPERIENCIA\s*\b",
+    r"\n\s*CARGOS\s*\b",
 
-    # ✅ CLAVE: cortar antes de que se mezclen cursos/idiomas y páginas
-    r"\n\s*FORMACI[ÓO]N\s+COMPLEMENTARIA\b",
-    r"\n\s*CURSOS\b",
-    r"\n\s*IDIOMAS\b",
+    # ✅ “corte” seguro: solo si aparece como encabezado en una línea propia
+    r"\n\s*FORMACI[ÓO]N\s+COMPLEMENTARIA\s*\b",
+    r"\n\s*CURSOS\s*\b",
+    r"\n\s*IDIOMAS\s*\b",
 
-    # ✅ CLAVE: cortar antes del pie institucional del PDF
-    r"\n\s*CVar\b",
-    r"\n\s*Fecha\s+de\s+generaci[oó]n\b",
+    # ✅ pie institucional
+    r"\n\s*CVar\s*\b",
+    r"\n\s*Fecha\s+de\s+generaci[oó]n\s*\b",
 ]
 
 def extract_formacion_academica_block(full_text: str) -> str:
@@ -152,6 +152,78 @@ def extract_formacion_academica_block(full_text: str) -> str:
             break
     if start_idx is None:
         return ""
+
+    tail = txt[start_idx:]
+
+    # Encontrar candidatos de corte
+    candidates = []
+    for mk in NEXT_SECTION_MARKERS:
+        m2 = re.search(mk, tail, flags=re.IGNORECASE)
+        if m2:
+            candidates.append((m2.start(), mk))
+    if not candidates:
+        return tail.strip()
+
+    candidates.sort(key=lambda x: x[0])
+
+    # “Cortes blandos” que a veces aparecen dentro de Formación Académica
+    soft_markers = (
+        r"FORMACI[ÓO]N\s+COMPLEMENTARIA",
+        r"\bCURSOS\b",
+        r"\bIDIOMAS\b",
+    )
+
+    # Si el corte es blando pero después siguen títulos, ignorarlo y buscar el siguiente
+    for pos, mk in candidates:
+        is_soft = any(re.search(sm, mk, flags=re.IGNORECASE) for sm in soft_markers)
+        if is_soft:
+            after = tail[pos:pos + 9000]  # ventana para ver si siguen títulos debajo
+            if re.search(
+                r"\b(Licenciatura|Licenciad[oa]s?|Tecnicatura|T[eé]cnica\s+Universitaria|"
+                r"Contador|Abogad|Ingenier|Bioqu[ií]mic|M[eé]dic|Farmac[eé]utic|Arquitect|Odont[oó]log)\b",
+                after,
+                re.IGNORECASE
+            ):
+                continue
+
+    return tail.strip()
+
+    tail = txt[start_idx:]
+
+    # buscamos todos los posibles cortes, pero con regla extra:
+    # si el corte es "CURSOS/IDIOMAS/FORMACIÓN COMPLEMENTARIA" y más abajo hay evidencia de títulos de grado,
+    # NO cortamos ahí (porque en algunos CV ese encabezado aparece antes de terminar la lista de títulos).
+    candidates = []
+    for mk in NEXT_SECTION_MARKERS:
+        m2 = re.search(mk, tail, flags=re.IGNORECASE)
+        if not m2:
+            continue
+        candidates.append((m2.start(), mk))
+
+    if not candidates:
+        return tail.strip()
+
+    candidates.sort(key=lambda x: x[0])
+
+    # patrones “blandos” que NO queremos usar como corte si aún hay títulos debajo
+    SOFT_CUTS = (
+        r"FORMACI[ÓO]N\s+COMPLEMENTARIA",
+        r"\bCURSOS\b",
+        r"\bIDIOMAS\b",
+    )
+
+    for pos, mk in candidates:
+        is_soft = any(re.search(sc, mk, flags=re.IGNORECASE) for sc in SOFT_CUTS)
+        if is_soft:
+            after = tail[pos:pos + 6000]  # ventana corta para detectar si siguen títulos
+            # Si en lo que sigue aparece una entrada típica de título (Licenciatura/Tecnicatura/etc), NO cortar aquí
+            if re.search(r"\b(Licenciatura|Licenciad[oa]s?|Tecnicatura|T[eé]cnica\s+Universitaria|Contador|Abogad|Ingenier|Bioqu[ií]mic|M[eé]dic)\b", after, re.IGNORECASE):
+                continue  # ignorar este corte y buscar el próximo
+        # si no es soft, o si es soft pero no hay títulos debajo, cortamos aquí
+        return tail[:pos].strip()
+
+    # si todos los cortes fueron ignorados (por soft), devolvemos todo el tail
+    return tail.strip()
 
     tail = txt[start_idx:]
     end_idx = len(tail)
@@ -171,7 +243,7 @@ RE_IN_PROGRESS = re.compile(
 )
 
 RE_FINISH_YEAR = re.compile(
-    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*([0-3]?\d\s*/\s*\d{4}|\d{4})",
+    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*([0-3]?\d\s*[/\-]\s*\d{4}|\d{4})",
     re.IGNORECASE
 )
 
@@ -261,7 +333,7 @@ def entry_is_completed(entry: str) -> bool:
 def get_finish_token(entry: str) -> str:
     m = RE_FINISH_YEAR.search(entry)
     if m:
-        return re.sub(r"\s+", "", m.group(2).strip())  # 12 / 1999 -> 12/1999
+        return re.sub(r"\s+", "", m.group(2).strip())
     if RE_SITUACION_COMPLETO.search(entry):
         return "COMPLETO"
     if RE_COMPLETION_CUES.search(entry):
