@@ -131,6 +131,15 @@ NEXT_SECTION_MARKERS = [
     r"\n\s*ACTIVIDADES\b",
     r"\n\s*EXPERIENCIA\b",
     r"\n\s*CARGOS\b",
+
+    # ✅ CLAVE: cortar antes de que se mezclen cursos/idiomas y páginas
+    r"\n\s*FORMACI[ÓO]N\s+COMPLEMENTARIA\b",
+    r"\n\s*CURSOS\b",
+    r"\n\s*IDIOMAS\b",
+
+    # ✅ CLAVE: cortar antes del pie institucional del PDF
+    r"\n\s*CVar\b",
+    r"\n\s*Fecha\s+de\s+generaci[oó]n\b",
 ]
 
 def extract_formacion_academica_block(full_text: str) -> str:
@@ -227,17 +236,18 @@ def split_entries(block: str) -> list[str]:
     return entries
 
 def entry_is_completed(entry: str) -> bool:
-    # Si dice en curso/actualidad => NO
-    if RE_IN_PROGRESS.search(entry):
-        return False
-    # Evidencia fuerte => SI
+    # ✅ Si hay evidencia fuerte de finalización, gana SIEMPRE
     if RE_FINISH_YEAR.search(entry):
         return True
     if RE_SITUACION_COMPLETO.search(entry):
         return True
     if RE_COMPLETION_CUES.search(entry):
         return True
-    # Si solo hay años sueltos o rangos => NO (regla dura anti-falsos positivos)
+
+    # Si dice en curso/actualidad => NO
+    if RE_IN_PROGRESS.search(entry):
+        return False
+
     return False
 
 def get_finish_token(entry: str) -> str:
