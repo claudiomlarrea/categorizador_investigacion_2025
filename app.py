@@ -236,17 +236,25 @@ def split_entries(block: str) -> list[str]:
     return entries
 
 def entry_is_completed(entry: str) -> bool:
-    # ✅ Si hay evidencia fuerte de finalización, gana SIEMPRE
-    if RE_FINISH_YEAR.search(entry):
-        return True
-    if RE_SITUACION_COMPLETO.search(entry):
-        return True
-    if RE_COMPLETION_CUES.search(entry):
-        return True
+    """
+    Regla dura de finalización:
+    - SOLO finaliza si hay evidencia explícita.
+    - 'Actualidad' invalida siempre.
+    """
 
-    # Si dice en curso/actualidad => NO
+    # 🚫 Si dice Actualidad / En curso → NO finalizado
     if RE_IN_PROGRESS.search(entry):
         return False
+
+    # ✅ Evidencias explícitas de finalización
+    if RE_FINISH_YEAR.search(entry):
+        return True
+
+    if RE_SITUACION_COMPLETO.search(entry):
+        return True
+
+    if RE_COMPLETION_CUES.search(entry):
+        return True
 
     return False
 
