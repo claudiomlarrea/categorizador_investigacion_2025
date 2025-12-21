@@ -74,17 +74,17 @@ def match_count(pattern, text):
     if not pattern:
         return 0
     try:
-        m1 = re.findall(pattern, text, re.IGNORECASE | re.UNICODE)
+        m1 = re.findall(pattern, text, flags=re.IGNORECASE | re.UNICODE)
         if m1:
             return len(m1)
     except re.error:
         return 0
 
-    # fallback: quitar acentos tanto a patrón como a texto
+    # Fallback: quitar acentos tanto a patrón como a texto
     try:
         text2 = _strip_accents(text)
         pat2 = _strip_accents(pattern)
-        return len(re.findall(pat2, text2, re.IGNORECASE | re.UNICODE))
+        return len(re.findall(pat2, text2, flags=re.IGNORECASE | re.UNICODE))
     except re.error:
         return 0
 
@@ -117,7 +117,6 @@ FORMACION_HEADERS = [
     r"FORMACI[ÓO]N ACAD[ÉE]MICA",
     r"FORMACION ACADEMICA",
     r"FORMACI[ÓO]N\s+ACAD[ÉE]MICA",
-    # algunos CV vienen como "Formación académica y complementaria"
     r"FORMACI[ÓO]N\s+ACAD[ÉE]MICA\s+Y\s+COMPLEMENTARIA",
     r"FORMACION\s+ACADEMICA\s+Y\s+COMPLEMENTARIA",
 ]
@@ -132,8 +131,6 @@ NEXT_SECTION_MARKERS = [
     r"\n\s*ACTIVIDADES\b",
     r"\n\s*EXPERIENCIA\b",
     r"\n\s*CARGOS\b",
-    # ojo: no cortar por "Formación complementaria" si está dentro del mismo bloque
-    # r"\n\s*FORMACI[ÓO]N COMPLEMENTARIA\b",
 ]
 
 def extract_formacion_academica_block(full_text: str) -> str:
@@ -171,11 +168,6 @@ RE_FINISH_YEAR = re.compile(
 
 RE_SITUACION_COMPLETO = re.compile(
     r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo",
-    re. Anticipate re.IGNORECASE
-)
-# ^^^ Streamlit a veces traga errores por typos: corregimos ya:
-RE_SITUACION_COMPLETO = re.compile(
-    r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo",
     re.IGNORECASE
 )
 
@@ -190,9 +182,7 @@ RE_BECARIO_CONTEXT = re.compile(
     re.IGNORECASE
 )
 
-# ✅ FIX CLAVE (Enzo Aciar):
-# - incluir "Licenciados" (plural)
-# - incluir "Profesor Universitario"
+# ✅ FIX CLAVE: incluir "Licenciados" (plural) y "Profesor Universitario"
 RE_ENTRY_START = re.compile(
     r"^(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
     r"Especializaci[oó]n|Especialista|"
@@ -291,7 +281,7 @@ def classify_entry(entry: str) -> str:
     if re.search(r"\bPos\s*graduad[oa]\b|\bPos\s*grado\b|\bPosgrado\b", entry, re.IGNORECASE):
         return "otro"
 
-    # ✅ FIX CLAVE: incluir Profesor Universitario como profesorado
+    # ✅ FIX CLAVE: Profesor Universitario cuenta como profesorado
     if re.search(r"\bProfesorado\b|\bProfesor\s+en\b|\bProfesor\s+Universitario\b", entry, re.IGNORECASE):
         return "profesorado"
 
