@@ -1,6 +1,7 @@
 import streamlit as st
 import re, json, io
 import pandas as pd
+import unicodedata
 from docx import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
@@ -59,8 +60,33 @@ def extract_text_pdf(file):
 # =========================
 # Helpers
 # =========================
+def _strip_accents(s: str) -> str:
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(ch for ch in s if not unicodedata.combining(ch))
+
 def match_count(pattern, text):
-    return len(re.findall(pattern, text, re.IGNORECASE)) if pattern else 0
+    """
+    Regex global (para secciones no parseadas) con fallback por normalización
+    (evita fallos por Año/Ano, finalización/finalizacion, etc.)
+    """
+    if not pattern:
+        return 0
+    try:
+        m1 = re.findall(pattern, text, re.IGNORECASE | re.UNICODE)
+        if m1:
+            return len(m1)
+    except re.error:
+        return 0
+
+    # fallback: quitar acentos tanto a patrón como a texto
+    try:
+        text2 = _strip_accents(text)
+        pat2 = _strip_accents(pattern)
+        return len(re.findall(pat2, text2, re.IGNORECASE | re.UNICODE))
+    except re.error:
+        return 0
 
 def clip(v, cap):
     return min(v, cap) if cap else v
@@ -91,6 +117,9 @@ FORMACION_HEADERS = [
     r"FORMACI[ÓO]N ACAD[ÉE]MICA",
     r"FORMACION ACADEMICA",
     r"FORMACI[ÓO]N\s+ACAD[ÉE]MICA",
+    # algunos CV vienen como "Formación académica y complementaria"
+    r"FORMACI[ÓO]N\s+ACAD[ÉE]MICA\s+Y\s+COMPLEMENTARIA",
+    r"FORMACION\s+ACADEMICA\s+Y\s+COMPLEMENTARIA",
 ]
 
 NEXT_SECTION_MARKERS = [
@@ -103,9 +132,8 @@ NEXT_SECTION_MARKERS = [
     r"\n\s*ACTIVIDADES\b",
     r"\n\s*EXPERIENCIA\b",
     r"\n\s*CARGOS\b",
-    r"\n\s*FORMACI[ÓO]N COMPLEMENTARIA\b",
-    r"\n\s*CURSOS\b",
-    r"\n\s*IDIOMAS\b",
+    # ojo: no cortar por "Formación complementaria" si está dentro del mismo bloque
+    # r"\n\s*FORMACI[ÓO]N COMPLEMENTARIA\b",
 ]
 
 def extract_formacion_academica_block(full_text: str) -> str:
@@ -143,6 +171,11 @@ RE_FINISH_YEAR = re.compile(
 
 RE_SITUACION_COMPLETO = re.compile(
     r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo",
+    re. Anticipate re.IGNORECASE
+)
+# ^^^ Streamlit a veces traga errores por typos: corregimos ya:
+RE_SITUACION_COMPLETO = re.compile(
+    r"Situaci[oó]n\s+del\s+nivel\s*:\s*Completo",
     re.IGNORECASE
 )
 
@@ -157,11 +190,14 @@ RE_BECARIO_CONTEXT = re.compile(
     re.IGNORECASE
 )
 
+# ✅ FIX CLAVE (Enzo Aciar):
+# - incluir "Licenciados" (plural)
+# - incluir "Profesor Universitario"
 RE_ENTRY_START = re.compile(
     r"^(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
     r"Especializaci[oó]n|Especialista|"
-    r"Profesorado|Profesor\s+en|"
-    r"Licenciatura|Licenciado/a|Licenciado|Licenciada|T[eé]cnica\s+Universitaria|Tecnicatura|"
+    r"Profesorado|Profesor\s+Universitario|Profesor\s+en|"
+    r"Licenciatura|Licenciad[oa]s?|T[eé]cnica\s+Universitaria|Tecnicatura|"
     r"Contador|Contadora|Contadur[ií]a|"
     r"Abogado|Abogada|Ingenier|Bioqu[ií]mic|M[eé]dic|Farmac[eé]utic|Arquitect|Odont[oó]log)\b",
     re.IGNORECASE
@@ -191,7 +227,8 @@ def split_entries(block: str) -> list[str]:
     # fallback SOLO por títulos principales (sin posdoc)
     if len(entries) == 1 and len(entries[0]) > 1500:
         parts = re.split(
-            r"(?i)(?=Doctorado\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|T[eé]cnica\s+Universitaria\b|Tecnicatura\b|Profesorado\b)",
+            r"(?i)(?=Doctorado\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|Licenciad[oa]s?\b|"
+            r"T[eé]cnica\s+Universitaria\b|Tecnicatura\b|Profesorado\b|Profesor\s+Universitario\b)",
             entries[0]
         )
         entries = [p.strip() for p in parts if p.strip()]
@@ -254,11 +291,13 @@ def classify_entry(entry: str) -> str:
     if re.search(r"\bPos\s*graduad[oa]\b|\bPos\s*grado\b|\bPosgrado\b", entry, re.IGNORECASE):
         return "otro"
 
-    if re.search(r"\bProfesorado\b|\bProfesor\s+en\b", entry, re.IGNORECASE):
+    # ✅ FIX CLAVE: incluir Profesor Universitario como profesorado
+    if re.search(r"\bProfesorado\b|\bProfesor\s+en\b|\bProfesor\s+Universitario\b", entry, re.IGNORECASE):
         return "profesorado"
 
+    # ✅ FIX CLAVE: incluir Licenciados (plural)
     if re.search(
-        r"\b(Licenciatura|Licenciado/a|Licenciado|Licenciada|T[eé]cnica\s+Universitaria|Tecnicatura|"
+        r"\b(Licenciatura|Licenciad[oa]s?|T[eé]cnica\s+Universitaria|Tecnicatura|"
         r"Contador|Contadora|Contadur[ií]a|Abogado|Abogada|Ingenier|Bioqu[ií]mic|M[eé]dic|Farmac[eé]utic|Arquitect|Odont[oó]log)\b",
         entry,
         re.IGNORECASE
@@ -360,6 +399,7 @@ if uploaded:
                 st.markdown(f"**Entrada {i}** — tipo: `{classify_entry(ent)}` — finalizado: `{entry_is_completed(ent)}`")
                 st.code(ent[:1200])
             st.write(f"Posdoc explícitos finalizados detectados: {count_posdoc_explicit(form_block)}")
+            st.write("Conteos formacion:", form_counts)
 
     results = {}
     total = 0.0
@@ -403,7 +443,7 @@ if uploaded:
                 if es_titulo and not (section.lower().startswith("formación académica") or section.lower().startswith("formacion academica")):
                     c = 0
 
-            # si no aplicó override/bloqueo -> regex global
+            # si no aplicó override/bloqueo -> regex global (con fallback por acentos)
             if c is None:
                 c = match_count(pattern, raw_text)
 
