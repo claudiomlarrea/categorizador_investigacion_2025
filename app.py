@@ -184,7 +184,8 @@ RE_BECARIO_CONTEXT = re.compile(
 
 # ✅ FIX CLAVE: incluir "Licenciados" (plural) y "Profesor Universitario"
 RE_ENTRY_START = re.compile(
-    r"^(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
+    r"^\s*(?:[-•·*]\s*)?"
+    r"(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
     r"Especializaci[oó]n|Especialista|"
     r"Profesorado|Profesor\s+Universitario|Profesor\s+en|"
     r"Licenciatura|Licenciad[oa]s?|T[eé]cnica\s+Universitaria|Tecnicatura|"
