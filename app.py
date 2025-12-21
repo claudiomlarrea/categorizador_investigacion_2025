@@ -171,7 +171,7 @@ RE_IN_PROGRESS = re.compile(
 )
 
 RE_FINISH_YEAR = re.compile(
-    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*([0-3]?\d/\d{4}|\d{4})",
+    r"A[nñ]o\s+de\s+(finalizaci[oó]n|obtenci[oó]n|graduaci[oó]n)\s*:\s*([0-3]?\d\s*/\s*\d{4}|\d{4})",
     re.IGNORECASE
 )
 
@@ -261,7 +261,7 @@ def entry_is_completed(entry: str) -> bool:
 def get_finish_token(entry: str) -> str:
     m = RE_FINISH_YEAR.search(entry)
     if m:
-        return m.group(2).strip()
+        return re.sub(r"\s+", "", m.group(2).strip())  # 12 / 1999 -> 12/1999
     if RE_SITUACION_COMPLETO.search(entry):
         return "COMPLETO"
     if RE_COMPLETION_CUES.search(entry):
