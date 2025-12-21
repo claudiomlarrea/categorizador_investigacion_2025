@@ -25,12 +25,12 @@
           "max_points": 100
         },
         "Título de grado (finalizado)": {
-          "pattern": "(Licenciad[oa]s?|Licenciatura|Ingenier[oa]|Abogad[oa]|M[eé]dic[oa]|Contador|Arquitect[oa]|Bioqu[ií]mic[oa])[\\s\\S]{0,200}?Año de finalización:\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})",
+          "pattern": "(?i)(Licenciad(?:o|a|os|as)|Licenciatura|Ingenier(?:o|a)|Abogad(?:o|a)|M[eé]dic(?:o|a)|Contador(?:a)?|Arquitect(?:o|a)|Bioqu[ií]mic(?:o|a))[\\s\\S]{0,240}?(?:A(?:ñ|n)o\\s+de\\s+finalizaci(?:ó|o)n)\\s*:\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})",
           "unit_points": 40,
           "max_points": 40
         },
         "Profesorado/Docencia universitaria (finalizado)": {
-          "pattern": "(Profesorado|Profesor\\s+Universitario)[\\s\\S]{0,200}?Año de finalización:\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})",
+          "pattern": "(?i)(Profesorado|Profesor\\s+Universitario)[\\s\\S]{0,240}?(?:A(?:ñ|n)o\\s+de\\s+finalizaci(?:ó|o)n)\\s*:\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})",
           "unit_points": 40,
           "max_points": 40
         },
