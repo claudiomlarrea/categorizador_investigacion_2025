@@ -10,7 +10,7 @@
       "max_points": 580,
       "items": {
         "Doctorado (finalizado)": {
-          "pattern": "(?is)(?:Doctorado\\b|Doctor(?:a)?\\s+en\\b|Doctor(?:a)?\\b|Doctor(?:a)?\\s+de\\s+la\\s+Universidad\\b)[\\s\\S]{0,600}?A(?:ñ|n)o\\s+de\\s+finalizaci(?:ó|o)n\\s*:\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})(?![\\s\\S]{0,120}?(?:Actualidad|En\\s+curso|Cursando|Doctorand[oa]))",
+          "pattern": "(?is)(?:^|\\n)[\\s\\S]{0,2000}?(?:Doctorado\\b|Doctor(?:a)?\\s+en\\b|Doctor(?:a)?\\b)[\\s\\S]{0,800}?A(?:ñ|n)o\\s+de\\s+finalizaci(?:ó|o)n\\s*[:\\-–]?\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})(?![\\s\\S]{0,200}?(?:Actualidad|En\\s+curso|Cursando|Doctorand[oa]))",
           "unit_points": 300,
           "max_points": 300
         },
@@ -25,7 +25,7 @@
           "max_points": 100
         },
         "Título de grado (finalizado)": {
-          "pattern": "(?i)(Licenciad(?:o|a|os|as)|Licenciatura|Ingenier(?:o|a)|Abogad(?:o|a)|M[eé]dic(?:o|a)|Contador(?:a)?|Arquitect(?:o|a)|Bioqu[ií]mic(?:o|a)|Farmac[eé]utic(?:o|a))[\\s\\S]{0,400}?(?:A(?:ñ|n)o\\s+de\\s+finalizaci(?:ó|o)n)\\s*[:\\-–]?\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})",
+          "pattern": "(?i)(?:^|\\n)[\\s\\S]{0,2000}?(Licenciad(?:o|a|os|as)|Licenciatura|Ingenier(?:o|a)|Abogad(?:o|a)|M[eé]dic(?:o|a)|Contador(?:a)?|Arquitect(?:o|a)|Bioqu[ií]mic(?:o|a)|Farmac[eé]utic(?:o|a))[\\s\\S]{0,600}?A(?:ñ|n)o\\s+de\\s+finalizaci(?:ó|o)n\\s*[:\\-–]?\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})",
           "unit_points": 40,
           "max_points": 80
         },
