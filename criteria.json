@@ -34,8 +34,8 @@
           "unit_points": 40,
           "max_points": 40
         },
-        "Estancia (sin sede explícita)": {
-          "pattern": "(?ims)(?:^|\\n)\\s*(?:\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\s+)?Estancia\\s+de\\s+I\\s*\\+\\s*D\\s+en\\s*:\\s*\"[\\s\\S]{0,600}?\"[\\s\\S]{0,900}?(?:Direcci[oó]n\\s*:\\s*[^\\n]{3,220})[\\s\\S]{0,200}?(?:\\b\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\b)",
+        "Estancia": {
+          "pattern": "(?ims)(?:^|\\n)\\s*(?:\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\s+)?Estancia\\s+de\\s+I\\s*\\+\\s*D\\s+en\\s*:\\s*\"[\\s\\S]{0,600}?\"[\\s\\S]{0,600}?Ejecutada\\s+en\\s*:\\s*(?!null\\b)[^\\n]{3,260}[\\s\\S]{0,200}?(?:\\b\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\b)",
           "unit_points": 40,
           "max_points": 40
         },
