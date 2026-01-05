@@ -34,8 +34,8 @@
           "unit_points": 40,
           "max_points": 40
         },
-        "Posdoctorado (en curso o finalizado)": {
-          "pattern": "(?ims)(?:^|\\n)\\s*(?:Posdoctorado|Postdoctorado|Posdoctoral)\\b[\\s\\S]{0,260}?(?:Universidad|Facultad|CONICET|Instituto|Center|Centre|Laboratorio)\\b[\\s\\S]{0,260}?(?:\\b\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\b|\\b\\d{4}\\s*[-–]\\s*(?:\\d{4}|Actualidad)\\b|A[nñ]o\\s+de\\s+finalizaci[oó]n:\\s*(?:19\\d{2}|20\\d{2}))",
+        "Estancia (sin sede explícita)": {
+          "pattern": "(?ims)(?:^|\\n)\\s*(?:\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\s+)?Estancia\\s+de\\s+I\\s*\\+\\s*D\\s+en\\s*:\\s*\"[\\s\\S]{0,600}?\"[\\s\\S]{0,900}?(?:Direcci[oó]n\\s*:\\s*[^\\n]{3,220})[\\s\\S]{0,200}?(?:\\b\\d{2}/\\d{4}\\s*[-–]\\s*(?:\\d{2}/\\d{4}|Actualidad)\\b)",
           "unit_points": 40,
           "max_points": 40
         },
