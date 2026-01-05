@@ -25,7 +25,7 @@
           "max_points": 100
         },
         "Título de grado (finalizado)": {
-          "pattern": "(?is)(Licenciad(?:o|a|os|as)|Licenciatura|Ingenier(?:o|a)|Abogad(?:o|a)|M[eé]dic(?:o|a)|Contador(?:a)?|Arquitect(?:o|a)|Bioqu[ií]mic(?:o|a)|Farmac[eé]utic(?:o|a))[\\s\\S]{0,600}?(?:A(?:ñ|n)o\\s+de\\s+finalizaci(?:ó|o)n\\s*[:\\-–]?\\s*(?:\\d{1,2}/\\d{4}|19\\d{2}|20\\d{2})|\\b(19\\d{2}|20\\d{2})\\b)",
+          "pattern": "(?i)(Licenciad(?:o|a|os|as)|Licenciatura|Ingenier(?:o|a)|Abogad(?:o|a)|M[eé]dic(?:o|a)|Contador(?:a)?|Arquitect(?:o|a)|Bioqu[ií]mic(?:o|a)|Farmac[eé]utic(?:o|a))[\\s\\S]{0,240}?(?:A(?:ñ|n)o\\s+de\\s+finalizaci(?:ó|o)n)\\s*:\\s*(?:\\d{1,2}\\s*/\\s*)?(19\\d{2}|20\\d{2})",
           "unit_points": 40,
           "max_points": 80
         },
