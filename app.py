@@ -5,9 +5,7 @@ import unicodedata
 from docx import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-# =========================
 # PDF opcional
-# =========================
 try:
     import pdfplumber
     HAVE_PDF = True
@@ -68,15 +66,10 @@ def _strip_accents(s: str) -> str:
     s = unicodedata.normalize("NFKD", s)
     return "".join(ch for ch in s if not unicodedata.combining(ch))
 
-def normalize_spaces(s: str) -> str:
-    s = s.replace("\u00A0", " ")
-    s = re.sub(r"[ \t]+", " ", s)
-    s = re.sub(r"\n{3,}", "\n\n", s)
-    return s.strip()
-
 def match_count(pattern, text):
     """
-    Regex global con fallback por normalización de acentos
+    Regex global (para secciones no parseadas) con fallback por normalización
+    (evita fallos por Año/Ano, finalización/finalizacion, etc.)
     """
     if not pattern:
         return 0
@@ -84,10 +77,10 @@ def match_count(pattern, text):
         m1 = re.findall(pattern, text, flags=re.IGNORECASE | re.UNICODE)
         if m1:
             return len(m1)
-        return 0
     except re.error:
-        pass
+        return 0
 
+    # Fallback: quitar acentos tanto a patrón como a texto
     try:
         text2 = _strip_accents(text)
         pat2 = _strip_accents(pattern)
@@ -97,6 +90,12 @@ def match_count(pattern, text):
 
 def clip(v, cap):
     return min(v, cap) if cap else v
+
+def normalize_spaces(s: str) -> str:
+    s = s.replace("\u00A0", " ")
+    s = re.sub(r"[ \t]+", " ", s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    return s.strip()
 
 def obtener_categoria(total, criteria_dict):
     categorias = criteria_dict.get("categorias", {})
@@ -113,6 +112,7 @@ def obtener_categoria(total, criteria_dict):
 
 # ==========================================================
 # 1) Recorte robusto de la sección "FORMACION ACADÉMICA"
+#    (versión limpia, NO duplicada, NO rompe estancias/títulos)
 # ==========================================================
 FORMACION_HEADERS = [
     r"FORMACI[ÓO]N\s+ACAD[ÉE]MICA\s+Y\s+COMPLEMENTARIA",
@@ -121,8 +121,7 @@ FORMACION_HEADERS = [
     r"FORMACION\s+ACADEMICA",
 ]
 
-# marcadores “fuertes” (cortes reales)
-HARD_CUTS = [
+NEXT_SECTION_MARKERS = [
     r"\n\s*FORMACI[ÓO]N\s+DE\s+RECURSOS\s+HUMANOS\s*\b",
     r"\n\s*RECURSOS\s+HUMANOS\s*\b",
     r"\n\s*RRHH\s*\b",
@@ -134,20 +133,30 @@ HARD_CUTS = [
     r"\n\s*CARGOS\s*\b",
     r"\n\s*CVar\s*\b",
     r"\n\s*Fecha\s+de\s+generaci[oó]n\s*\b",
-]
 
-# marcadores “blandos” (pueden aparecer dentro y NO deben cortar si siguen títulos)
-SOFT_CUTS = [
+    # blandos (a veces aparecen antes de terminar títulos/estancias)
     r"\n\s*FORMACI[ÓO]N\s+COMPLEMENTARIA\s*\b",
     r"\n\s*CURSOS\s*\b",
     r"\n\s*IDIOMAS\s*\b",
 ]
 
-TITLE_HINTS_AFTER = re.compile(
-    r"\b(Doctorado|Doctor\s+en|Maestr[ií]a|Especializaci[oó]n|"
+SOFT_CUTS = (
+    "FORMACIÓN COMPLEMENTARIA",
+    "FORMACION COMPLEMENTARIA",
+    "\nCURSOS",
+    "\nIDIOMAS",
+)
+
+# evidencia de que “todavía hay títulos/estancias debajo”
+RE_EVIDENCE_BELOW = re.compile(
+    r"\b(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|"
+    r"Maestr[ií]a|Mag[ií]ster|Magister|"
+    r"Especializaci[oó]n|Especialista|"
+    r"Profesorado|Profesor\s+Universitario|Profesor\s+en|"
     r"Licenciatura|Licenciad[oa]s?|Tecnicatura|T[eé]cnica\s+Universitaria|"
-    r"Contador|Abogad|Ingenier|Bioqu[ií]mic|Farmac[eé]utic|M[eé]dic|"
-    r"Arquitect|Odont[oó]log)\b",
+    r"Contador|Abogad|Ingenier|"
+    r"Bioqu[ií]mic|Farmac[eé]utic|M[eé]dic|Arquitect|Odont[oó]log|"
+    r"Estancia\s+de\s+I\s*\+\s*D)\b",
     re.IGNORECASE
 )
 
@@ -164,38 +173,31 @@ def extract_formacion_academica_block(full_text: str) -> str:
 
     tail = txt[start_idx:]
 
-    # 1) Buscar el primer HARD_CUT (si existe)
-    hard_positions = []
-    for mk in HARD_CUTS:
+    candidates = []
+    for mk in NEXT_SECTION_MARKERS:
         m2 = re.search(mk, tail, flags=re.IGNORECASE)
         if m2:
-            hard_positions.append(m2.start())
-    hard_cut = min(hard_positions) if hard_positions else None
-
-    # 2) Considerar SOFT_CUTS, pero SOLO si no hay títulos debajo
-    candidates = []
-
-    for mk in SOFT_CUTS:
-        m2 = re.search(mk, tail, flags=re.IGNORECASE)
-        if not m2:
-            continue
-        pos = m2.start()
-        after = tail[pos:pos + 6000]
-        if TITLE_HINTS_AFTER.search(after):
-            continue
-        candidates.append(pos)
-
-    # 3) El corte final es el mínimo entre hard_cut y los soft aceptados
-    cut_positions = []
-    if hard_cut is not None:
-        cut_positions.append(hard_cut)
-    cut_positions.extend(candidates)
-
-    if not cut_positions:
+            candidates.append((m2.start(), mk))
+    if not candidates:
         return tail.strip()
 
-    end_idx = min(cut_positions)
-    return tail[:end_idx].strip()
+    candidates.sort(key=lambda x: x[0])
+
+    for pos, mk in candidates:
+        mk_norm = mk.upper()
+        is_soft = any(sc in mk_norm for sc in SOFT_CUTS)
+
+        if is_soft:
+            after = tail[pos:pos + 8000]
+            # si abajo aún hay títulos/estancias → NO cortamos acá
+            if RE_EVIDENCE_BELOW.search(after):
+                continue
+
+        # corte válido
+        return tail[:pos].strip()
+
+    # si todos los cortes fueron ignorados por “blandos”, devolvemos todo
+    return tail.strip()
 
 # ==========================================================
 # 2) Parseo por entradas + FINALIZACIÓN EXPLÍCITA
@@ -225,10 +227,10 @@ RE_BECARIO_CONTEXT = re.compile(
     re.IGNORECASE
 )
 
-# ✅ Entrada: incluye Bioquímico y Farmacéutico completos
+# ✅ FIX CLAVE: incluir Farmacéutico y Bioquímico explícitos
 RE_ENTRY_START = re.compile(
     r"^\s*(?:[-•·*]\s*)?"
-    r"(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|"
+    r"(Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|Maestr[ií]a|Mag[ií]ster|Magister|"
     r"Especializaci[oó]n|Especialista|"
     r"Profesorado|Profesor\s+Universitario|Profesor\s+en|"
     r"Licenciatura|Licenciad[oa]s?|T[eé]cnica\s+Universitaria|Tecnicatura|"
@@ -239,73 +241,47 @@ RE_ENTRY_START = re.compile(
     re.IGNORECASE
 )
 
+# POSDOC: entrada separada
 RE_POSDOC_ENTRY = re.compile(r"(?ims)^(Posdoctorado|Postdoctorado)\b[\s\S]{0,1600}", re.IGNORECASE)
 
 def split_entries(block: str) -> list[str]:
-    """
-    Split robusto por BLOQUES (doble salto) + fallback por RE_ENTRY_START.
-    Arregla títulos de grado (Bioquímico/Farmacéutico) que en PDF no quedan como “línea limpia”.
-    """
     if not block:
         return []
-
-    txt = block.replace("\r\n", "\n").replace("\r", "\n")
-    txt = re.sub(r"[ \t]+\n", "\n", txt)
-    txt = re.sub(r"\n{3,}", "\n\n", txt).strip()
-
-    raw_blocks = [b.strip() for b in txt.split("\n\n") if b.strip()]
-
-    cleaned = []
-    for b in raw_blocks:
-        b2 = "\n".join([l for l in b.split("\n") if l.strip() and l.strip().lower() != "null"]).strip()
-        if b2:
-            cleaned.append(b2)
-
-    if not cleaned:
-        return []
+    lines = [l.strip() for l in block.split("\n")]
+    lines = [l for l in lines if l and l.lower() != "null"]
 
     entries = []
-    buf = ""
-
-    def looks_like_entry_start(b: str) -> bool:
-        first_line = (b.split("\n", 1)[0] or "").strip()
-        return bool(RE_ENTRY_START.search(first_line) or RE_ENTRY_START.search(b[:120]))
-
-    for b in cleaned:
-        if looks_like_entry_start(b):
-            if buf:
-                entries.append(buf.strip())
-            buf = b
+    buf = []
+    for line in lines:
+        if RE_ENTRY_START.search(line) and buf:
+            entries.append("\n".join(buf).strip())
+            buf = [line]
         else:
-            buf = (buf + "\n" + b).strip() if buf else b
+            buf.append(line)
 
     if buf:
-        entries.append(buf.strip())
+        entries.append("\n".join(buf).strip())
 
+    # fallback SOLO por títulos principales
     if len(entries) == 1 and len(entries[0]) > 1500:
         parts = re.split(
-            r"(?im)(?=^\s*(?:[-•·*]\s*)?(?:"
-            r"Doctorado|Doctor\s+en|Doctor\s+de\s+la\s+Universidad|"
-            r"Maestr[ií]a|Mag[ií]ster|"
-            r"Especializaci[oó]n|Especialista|"
-            r"Profesorado|Profesor\s+Universitario|Profesor\s+en|"
-            r"Licenciatura|Licenciad[oa]s?|T[eé]cnica\s+Universitaria|Tecnicatura|"
-            r"Contador|Contadora|Contadur[ií]a|"
-            r"Abogado|Abogada|Ingenier(?:o|a)?|"
-            r"Bioqu[ií]mic(?:o|a)|Farmac[eé]utic(?:o|a)|M[eé]dic(?:o|a)|"
-            r"Arquitect(?:o|a)|Odont[oó]log(?:o|a)"
-            r")\b)",
+            r"(?i)(?=Doctorado\b|Doctor\s+en\b|Maestr[ií]a\b|Especializaci[oó]n\b|Licenciatura\b|Licenciad[oa]s?\b|"
+            r"T[eé]cnica\s+Universitaria\b|Tecnicatura\b|Profesorado\b|Profesor\s+Universitario\b|"
+            r"Bioqu[ií]mic\b|Farmac[eé]utic\b|M[eé]dic\b|Contador\b|Abogad\b|Ingenier\b|Arquitect\b|Odont[oó]log\b)",
             entries[0]
         )
-        entries = [p.strip() for p in parts if p and p.strip()]
+        entries = [p.strip() for p in parts if p.strip()]
 
     return entries
 
 def entry_is_completed(entry: str) -> bool:
-    # 🚫 Si dice Actualidad / En curso → NO finalizado
+    """
+    Regla dura de finalización:
+    - SOLO finaliza si hay evidencia explícita.
+    - 'Actualidad' invalida siempre.
+    """
     if RE_IN_PROGRESS.search(entry):
         return False
-    # ✅ Evidencias explícitas
     if RE_FINISH_YEAR.search(entry):
         return True
     if RE_SITUACION_COMPLETO.search(entry):
@@ -334,7 +310,7 @@ def get_first_line_title(entry: str) -> str:
 
 def get_institution_hint(entry: str) -> str:
     lines = [l.strip() for l in entry.split("\n") if l.strip()]
-    for l in lines[:12]:
+    for l in lines[:10]:
         if re.search(r"\b(UNIVERSIDAD|FACULTAD|INSTITUTO|SEDE|CONICET|CENTER|CENTRE|LABORATORIO)\b", l, re.IGNORECASE):
             return l
     return ""
@@ -352,8 +328,10 @@ def classify_entry(entry: str) -> str:
         return "maestria"
     if re.search(r"\bEspecializaci[oó]n\b|\bEspecialista\b", entry, re.IGNORECASE):
         return "especializacion"
+
     if re.search(r"\bPos\s*graduad[oa]\b|\bPos\s*grado\b|\bPosgrado\b", entry, re.IGNORECASE):
         return "otro"
+
     if re.search(r"\bProfesorado\b|\bProfesor\s+en\b|\bProfesor\s+Universitario\b", entry, re.IGNORECASE):
         return "profesorado"
 
@@ -378,6 +356,10 @@ def count_posdoc_explicit(block: str) -> int:
     """
     if not block:
         return 0
+
+    # Si querés BLOQUEAR posdoc SIEMPRE, descomentá esto:
+    # return 0
+
     matches = []
     for m in RE_POSDOC_ENTRY.finditer(block):
         chunk = m.group(0)
@@ -459,7 +441,7 @@ if uploaded:
             st.write(f"Entradas detectadas: {len(entries_dbg)}")
             for i, ent in enumerate(entries_dbg[:80], start=1):
                 st.markdown(f"**Entrada {i}** — tipo: `{classify_entry(ent)}` — finalizado: `{entry_is_completed(ent)}`")
-                st.code(ent[:1400])
+                st.code(ent[:1200])
             st.write(f"Posdoc explícitos finalizados detectados: {count_posdoc_explicit(form_block)}")
             st.write("Conteos formacion:", form_counts)
 
@@ -494,9 +476,6 @@ if uploaded:
                     c = form_counts.get("profesorado", 0)
                 elif re.search(r"\bposdoc\b|\bpostdoc\b|\bposdoctorad\b|\bpostdoctorad\b", item_l):
                     c = form_counts.get("posdoc", 0)
-                elif "estancia" in item_l:
-                    # Estancias: contarlas usando el patrón del criteria pero SOLO dentro del bloque de formación
-                    c = match_count(pattern, form_block)
 
             # 🔒 Bloqueo extra: evitar conteo de títulos fuera de Formación
             if c is None:
