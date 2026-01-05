@@ -144,9 +144,11 @@ NEXT_SECTION_MARKERS = [
 
 def extract_formacion_academica_block(full_text: str) -> str:
     txt = normalize_spaces(full_text)
+
+    # 1) buscar inicio
     start_idx = None
     for h in FORMACION_HEADERS:
-        m = re.search(h, txt, flags=re.IGNORECASE)
+        m = re.search(rf"(?:^|\n)\s*{h}\s*(?:\n|$)", txt, flags=re.IGNORECASE)
         if m:
             start_idx = m.end()
             break
@@ -155,40 +157,43 @@ def extract_formacion_academica_block(full_text: str) -> str:
 
     tail = txt[start_idx:]
 
-    # Encontrar candidatos de corte
+    # 2) buscar cortes candidatos (encabezados en línea propia)
     candidates = []
     for mk in NEXT_SECTION_MARKERS:
         m2 = re.search(mk, tail, flags=re.IGNORECASE)
         if m2:
             candidates.append((m2.start(), mk))
+
     if not candidates:
         return tail.strip()
 
     candidates.sort(key=lambda x: x[0])
 
-    # “Cortes blandos” que a veces aparecen dentro de Formación Académica
-    soft_markers = (
+    SOFT_CUTS = (
         r"FORMACI[ÓO]N\s+COMPLEMENTARIA",
         r"\bCURSOS\b",
         r"\bIDIOMAS\b",
     )
 
-    # Si el corte es blando pero después siguen títulos, ignorarlo y buscar el siguiente
+    # 3) elegir primer corte válido
     for pos, mk in candidates:
-        is_soft = any(re.search(sm, mk, flags=re.IGNORECASE) for sm in soft_markers)
+        is_soft = any(re.search(sc, mk, flags=re.IGNORECASE) for sc in SOFT_CUTS)
         if is_soft:
-            after = tail[pos:pos + 9000]  # ventana para ver si siguen títulos debajo
+            after = tail[pos:pos + 6000]
+            # si después del "soft" todavía hay títulos típicos, no cortar ahí
             if re.search(
-                r"\b(Licenciatura|Licenciad[oa]s?|Tecnicatura|T[eé]cnica\s+Universitaria|"
-                r"Contador|Abogad|Ingenier|Bioqu[ií]mic|M[eé]dic|Farmac[eé]utic|Arquitect|Odont[oó]log)\b",
+                r"\b(Doctorado|Doctor\s+en|Maestr[ií]a|Mag[ií]ster|Especializaci[oó]n|"
+                r"Licenciatura|Licenciad[oa]s?|Bioqu[ií]mic[oa]|Farmac[eé]utic[oa]|"
+                r"Ingenier[oa]|Abogad[oa]|M[eé]dic[oa]|Contador[a]?|Arquitect[oa]|Odont[oó]log[oa])\b",
                 after,
                 re.IGNORECASE
             ):
                 continue
 
-    return tail.strip()
+        return tail[:pos].strip()
 
-    tail = txt[start_idx:]
+    # si todos los cortes fueron ignorados por soft, devolvemos todo el tail
+    return tail.strip()
 
     # buscamos todos los posibles cortes, pero con regla extra:
     # si el corte es "CURSOS/IDIOMAS/FORMACIÓN COMPLEMENTARIA" y más abajo hay evidencia de títulos de grado,
